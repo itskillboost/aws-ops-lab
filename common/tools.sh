@@ -8,7 +8,7 @@ source "$ROOT/common/eks.sh"
 B=~/bin; mkdir -p "$B"; cd /tmp
 KV=$(cval eks_version); KV=${KV:-1.37}
 if ! "$B/kubectl" version --client 2>/dev/null | grep -q "v$KV"; then
-  curl -fsSL --retry 3 --retry-delay 2o "$B/kubectl" "https://dl.k8s.io/release/$(curl -fsSL --retry 3 --retry-delay 2 "https://dl.k8s.io/release/stable-$KV.txt")/bin/linux/amd64/kubectl"
+  curl -fsSL --retry 3 --retry-delay 2 -o "$B/kubectl" "https://dl.k8s.io/release/$(curl -fsSL --retry 3 --retry-delay 2 "https://dl.k8s.io/release/stable-$KV.txt")/bin/linux/amd64/kubectl"
   chmod +x "$B/kubectl"
 fi
 if ! command -v "$B/helm" >/dev/null; then
@@ -18,7 +18,7 @@ if ! command -v "$B/eksctl" >/dev/null; then
   curl -fsSL --retry 3 --retry-delay 2 "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz" | tar xz -C "$B"
 fi
 if ! command -v "$B/argocd" >/dev/null; then
-  curl -fsSL --retry 3 --retry-delay 2o "$B/argocd" https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && chmod +x "$B/argocd"
+  curl -fsSL --retry 3 --retry-delay 2 -o "$B/argocd" https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64 && chmod +x "$B/argocd"
 fi
 python3 -c 'import yaml' 2>/dev/null || pip3 install --user --quiet pyyaml
 grep -q 'HOME/bin' ~/.bashrc 2>/dev/null || echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
