@@ -25,6 +25,14 @@ Parameters:
     Type: String
     Default: adfontes.cloud
     Description: Instructor domain; creates the hosted zone <SID>.<domain>   # 강사 도메인. 수강생 하위 도메인 <학번>.<강사 도메인> 의 호스팅 영역을 만든다
+  DailyLimit:
+    Type: Number
+    Default: 10
+    Description: Daily cost alarm USD (course file budget_daily)   # 일 비용 알람(USD) — 과정 파일 budget_daily
+  TotalLimit:
+    Type: Number
+    Default: 100
+    Description: Total cost alarm USD (course file budget_total)   # 누적 비용 알람(USD) — 과정 파일 budget_total
   ProviderRolePattern:
     Type: String
     Default: OrganizationAccountAccessRole
@@ -65,8 +73,9 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorRDSAccess
         - arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorSSMAccess
         - arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorECSAccess
+        - arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorEKSAccess   # EKS 파드 장애·노드 그룹 인스턴스 종료
 
-  # ── 비용 알람: 일 $10, 누적(연간) $100 을 넘으면 수강생·강사에게 메일
+  # ── 비용 알람: 일 DailyLimit, 누적(연간) TotalLimit 달러를 넘으면 수강생·강사에게 메일
   DailyBudget:
     Type: AWS::Budgets::Budget
     Properties:
@@ -74,7 +83,7 @@ Resources:
         BudgetName: !Sub "opslab-${StudentId}-daily"
         BudgetType: COST
         TimeUnit: DAILY
-        BudgetLimit: { Amount: 10, Unit: USD }
+        BudgetLimit: { Amount: !Ref DailyLimit, Unit: USD }
       NotificationsWithSubscribers:
         - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE }
           Subscribers: !If
@@ -88,7 +97,7 @@ Resources:
         BudgetName: !Sub "opslab-${StudentId}-total"
         BudgetType: COST
         TimeUnit: ANNUALLY
-        BudgetLimit: { Amount: 100, Unit: USD }
+        BudgetLimit: { Amount: !Ref TotalLimit, Unit: USD }
       NotificationsWithSubscribers:
         - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE }
           Subscribers: !If

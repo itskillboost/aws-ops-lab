@@ -38,7 +38,7 @@ Resources:
       CidrBlock: 10.0.0.0/24
       AvailabilityZone: !Select [0, !GetAZs ""]
       MapPublicIpOnLaunch: true
-      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-pub-a" }]
+      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-pub-a" }, { Key: kubernetes.io/role/elb, Value: "1" }]   # EKS: 외부 로드밸런서 서브넷
   PubC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -46,21 +46,21 @@ Resources:
       CidrBlock: 10.0.1.0/24
       AvailabilityZone: !Select [1, !GetAZs ""]
       MapPublicIpOnLaunch: true
-      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-pub-c" }]
+      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-pub-c" }, { Key: kubernetes.io/role/elb, Value: "1" }]   # EKS: 외부 로드밸런서 서브넷
   AppA:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Vpc
       CidrBlock: 10.0.10.0/24
       AvailabilityZone: !Select [0, !GetAZs ""]
-      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-app-a" }]
+      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-app-a" }, { Key: kubernetes.io/role/internal-elb, Value: "1" }, { Key: karpenter.sh/discovery, Value: !Ref StudentId }]   # EKS: 내부 LB·Karpenter 서브넷
   AppC:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Vpc
       CidrBlock: 10.0.11.0/24
       AvailabilityZone: !Select [1, !GetAZs ""]
-      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-app-c" }]
+      Tags: [{ Key: Name, Value: !Sub "${StudentId}-base-app-c" }, { Key: kubernetes.io/role/internal-elb, Value: "1" }, { Key: karpenter.sh/discovery, Value: !Ref StudentId }]   # EKS: 내부 LB·Karpenter 서브넷
 
   PubRt:
     Type: AWS::EC2::RouteTable

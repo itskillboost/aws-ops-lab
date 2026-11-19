@@ -1,0 +1,14 @@
+lab: workload-5
+checks:
+  - name: 앱 이미지 주소의 레지스트리·태그가 실제로 존재한다(파드가 이미지를 받았다)
+    run: test -z "$(kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o json | jq -r '.items[].status.containerStatuses[]?.state.waiting.reason // empty' | grep -E 'ImagePull|ErrImage')"
+    fix: 이미지 주소를 차트 기본값(helm get values)이나 레지스트리에 실제 있는 태그로 고치세요
+    ref: 해답 — 변형 ①·② 조치
+  - name: 노드 역할에 ECR 읽기 권한이 붙어 있다
+    run: aws iam list-attached-role-policies --role-name "$SID-cluster-node-role" --query 'AttachedPolicies[].PolicyName' --output text | grep -qE 'AmazonEC2ContainerRegistry(ReadOnly|PullOnly)'
+    fix: 노드 역할에 AmazonEC2ContainerRegistryReadOnly(또는 PullOnly)를 다시 붙이세요
+    ref: 해답 — 변형 ③ 조치
+  - name: 앱 이미지 태그가 latest 가 아닌 고정 태그다
+    run: kubectl -n app get deploy opslab-app -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -vqE ':latest$|^[^:]+$'
+    fix: 재현 가능한 배포를 위해 고정 태그(예 1.0.0 또는 커밋 해시)를 쓰세요
+    ref: 해답 — 재발 방지

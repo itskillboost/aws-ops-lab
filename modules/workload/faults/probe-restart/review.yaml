@@ -1,0 +1,20 @@
+lab: workload-4
+checks:
+  - name: liveness probe 경로가 앱이 실제로 200을 주는 경로다
+    run: |
+      p=$(kubectl -n app get deploy opslab-app -o jsonpath='{.spec.template.spec.containers[0].livenessProbe.httpGet.path}')
+      kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080$p',timeout=5).status==200 else 1)" 2>/dev/null
+    fix: livenessProbe.httpGet.path 를 /health 로 고치세요
+    ref: 해답 — 변형 ① 조치
+  - name: liveness 의 timeout 이 2초 이상이고 실패 허용 횟수가 2회 이상이다(한 번 느린 응답으로 재시작하지 않음)
+    run: kubectl -n app get deploy opslab-app -o json | jq -e '.spec.template.spec.containers[0].livenessProbe | (.timeoutSeconds//1)>=2 and (.failureThreshold//3)>=2' >/dev/null
+    fix: livenessProbe.timeoutSeconds 2 이상, failureThreshold 3 정도로 여유를 두세요
+    ref: 해답 — 변형 ② 조치
+  - name: 시작이 느린 앱을 위해 startup probe 가 있다
+    run: kubectl -n app get deploy opslab-app -o json | jq -e '.spec.template.spec.containers[0].startupProbe' >/dev/null
+    fix: startupProbe(예 /health, 2초 간격 30회 = 최대 60초)를 두어 liveness 가 시작 중인 앱을 죽이지 않게 하세요
+    ref: 해답 — 변형 ③ 조치
+  - name: 런북에 liveness·readiness·startup 의 역할 구분이 적혀 있다
+    run: grep -qi 'startup' ~/opslab-work/workload/runbook-workload-4.md && grep -qi 'liveness' ~/opslab-work/workload/runbook-workload-4.md
+    fix: 런북 5. 재발 방지에 세 probe 의 역할(살아 있나/손님 받을 준비/출근 준비 중)을 한 줄씩 적으세요
+    ref: 이론 요약 — probe

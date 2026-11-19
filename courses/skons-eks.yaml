@@ -1,0 +1,39 @@
+# 과정 파일 — 과정마다 이 파일만 새로 만든다. 모듈·스크립트에는 과정 값을 넣지 않는다.
+# 수강생은 ~/opslab-env.sh 에 export COURSE=skons-eks 가 있어야 이 파일을 쓴다(Day 0 안내).
+id: skons-eks
+customer: SK오앤에스
+audience: SK오앤에스 신입사원(직원) 직무교육
+parent_course: 「AWS 운영 역량 강화 과정」 2단계 EKS 운영(64H, 8일)
+prev_stage: skons
+next_stage: 3단계 종합평가와 런북(16H, 2일)
+account_provider: 메가존클라우드
+notion_root: SK오앤스
+instructor_domain: adfontes.cloud
+instructor_account_id: TBD        # Day 0에 확정
+budget_daily: 15
+budget_total: 150
+# EKS — Day 0에 표준 지원 버전으로 확정 (2026-11 리허설: 1.37 / 1.36)
+eks_version: "1.37"
+eks_version_prev: "1.36"
+node_instance_type: m6i.large     # 파드 보안 그룹(podnet-6) 지원 유형. 서울 4개 AZ 제공 확인
+node_count: 2
+# 미러 레지스트리(강사 ECR Public). tools/mirror-images.sh 가 images 를 같은 태그로 복사한다.
+registry: TBD                     # 예) public.ecr.aws/a1b2c3d4/opslab
+images:
+  app: opslab-app:1.0.0           # 저장소 app/ 에서 빌드(tools/mirror-images.sh build)
+  postgres: pgvector/pgvector:pg16
+  redis: library/redis:7.4-alpine
+  busybox: library/busybox:1.37
+  metrics-server: registry.k8s.io/metrics-server/metrics-server:v0.9.0
+  headlamp: ghcr.io/headlamp-k8s/headlamp:v0.46.0
+gitops_base_tag: eks-v1
+days:
+  1: workload
+  2: cluster
+  3: podnet
+  4: access
+  5: gitops
+  6: image
+  7: heal
+  8: scale
+override: {}

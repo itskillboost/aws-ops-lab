@@ -1,0 +1,16 @@
+lab: workload-6
+checks:
+  - name: init 컨테이너가 기다리는 DB 주소가 실제 있는 Service 다
+    run: |
+      h=$(kubectl -n app get deploy opslab-app -o json | jq -r '.spec.template.spec.initContainers[0].env[]?|select(.name=="DB_HOST").value')
+      [ -z "$h" ] || kubectl -n app get svc "${h%%.*}" >/dev/null 2>&1
+    fix: wait-db 컨테이너의 DB_HOST 를 postgres 로 고치세요
+    ref: 해답 — 변형 ① 조치
+  - name: init 컨테이너 명령이 실제 DB 포트를 확인한다(파일·무한 대기 아님)
+    run: kubectl -n app get deploy opslab-app -o json | jq -r '.spec.template.spec.initContainers[0].command|join(" ")' | grep -q 'nc -z'
+    fix: init 명령을 nc -z 로 DB 포트를 확인하는 원래 명령으로 되돌리세요
+    ref: 해답 — 변형 ② 조치
+  - name: 앱 파드의 init 컨테이너가 모두 정상 종료(Completed)했다
+    run: test -z "$(kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o json | jq -r '.items[].status.initContainerStatuses[]? | select(.state.terminated.reason != "Completed") | .name')"
+    fix: kubectl describe pod 의 Init Containers 상태와 kubectl logs <파드> -c wait-db 를 확인하세요
+    ref: 해답 — 근거가 된 출력

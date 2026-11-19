@@ -1,0 +1,10 @@
+postgres:
+  image: docker.io/pgvector/pgvector:pg16     # start.sh 가 과정 파일 registry 미러 주소로 바꾼다
+  storage: 5Gi
+  storageClass: gp3
+  database: opslab
+  user: app
+  resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { memory: 512Mi } }
+redis:
+  image: public.ecr.aws/docker/library/redis:7.4-alpine
+  resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { memory: 128Mi } }

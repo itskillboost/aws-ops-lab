@@ -1,0 +1,20 @@
+id: workload
+title: 워크로드 장애
+hours: 8
+requires: K1        # 아침에 배포: L1 네트워크 + K1 클러스터(Headlamp 포함)
+builds: K2          # 직접 구축: metrics-server, PostgreSQL·Redis, 샘플 앱(Helm) = K2 층
+topics:
+  - Pod Pending — 리소스 부족, 노드 셀렉터, taint
+  - CrashLoopBackOff 추적
+  - OOMKilled와 리소스 제한
+  - probe 오설정에 따른 재시작 루프
+  - 이미지 풀 실패
+  - init 컨테이너 정체
+# Lab ID | 장애 폴더 | 변형 수 | 구분 | 장애 유형(주입할 때 보여 줌)
+labs:
+  - workload-1 | pod-pending | 3 | 필수 | 새 버전 파드가 Pending 에서 멈추는 장애
+  - workload-2 | crashloop | 3 | 필수 | 새 버전 파드가 CrashLoopBackOff 로 반복 재시작하는 장애
+  - workload-3 | oomkilled | 3 | 필수 | 파드가 메모리 초과(OOMKilled)로 계속 죽는 장애
+  - workload-4 | probe-restart | 3 | 필수 | 건강검진(probe) 설정 때문에 파드가 반복 재시작되는 장애
+  - workload-5 | image-pull | 3 | 심화 | 이미지를 받지 못해 파드가 뜨지 않는 장애
+  - workload-6 | init-stuck | 3 | 심화 | init 컨테이너가 끝나지 않아 파드가 시작하지 못하는 장애

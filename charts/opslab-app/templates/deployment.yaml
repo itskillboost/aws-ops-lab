@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels: {{- include "opslab-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: {{- include "opslab-app.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "opslab-app.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.waitForDb.enabled }}
+      initContainers:
+        - name: wait-db
+          image: {{ .Values.waitForDb.image }}
+          command: ["sh", "-c", "until nc -z -w 2 $DB_HOST $DB_PORT; do echo waiting for $DB_HOST:$DB_PORT; sleep 2; done; echo $DB_HOST:$DB_PORT is up"]
+          env:
+            - { name: DB_HOST, value: {{ .Values.db.host | quote }} }
+            - { name: DB_PORT, value: {{ .Values.db.port | quote }} }
+          resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 32Mi } }
+      {{- end }}
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ name: http, containerPort: 8080 }]
+          env:
+            {{- range $k, $v := .Values.env }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+            - { name: DB_HOST, value: {{ .Values.db.host | quote }} }
+            - { name: DB_PORT, value: {{ .Values.db.port | quote }} }
+            - { name: DB_NAME, value: {{ .Values.db.name | quote }} }
+            - { name: DB_USER, value: {{ .Values.db.user | quote }} }
+            {{- if eq .Values.db.source "secret" }}
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.db.secretName }}, key: password } }
+            {{- end }}
+            - { name: REDIS_HOST, value: {{ .Values.redis.host | quote }} }
+            - { name: REDIS_PORT, value: {{ .Values.redis.port | quote }} }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          startupProbe:
+            httpGet: { path: {{ .Values.probes.startup.path }}, port: http }
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          livenessProbe:
+            httpGet: { path: {{ .Values.probes.liveness.path }}, port: http }
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet: { path: {{ .Values.probes.readiness.path }}, port: http }
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- if .Values.dataVolume.enabled }}
+          volumeMounts: [{ name: data, mountPath: {{ .Values.env.APP_DATA_DIR }} }]
+          {{- end }}
+      {{- if .Values.dataVolume.enabled }}
+      volumes: [{ name: data, emptyDir: {} }]
+      {{- end }}

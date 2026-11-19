@@ -1,0 +1,25 @@
+lab: workload-3
+checks:
+  - name: 앱 컨테이너에 메모리 상한(limits)이 명시되어 있다(네임스페이스 기본값에 기대지 않음)
+    run: kubectl -n app get deploy opslab-app -o json | jq -e '.spec.template.spec.containers[0].resources.limits.memory' >/dev/null
+    fix: resources.limits.memory 를 Deployment 에 직접 적으세요(예 256Mi)
+    ref: 해답 — 변형 ③ 조치
+  - name: 메모리 상한이 실제 사용량의 1.5배 이상이다 (kubectl top 기준 여유)
+    run: |
+      lim=$(kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o jsonpath='{.items[0].spec.containers[0].resources.limits.memory}')
+      use=$(kubectl -n app top pods -l app.kubernetes.io/name=opslab-app --no-headers 2>/dev/null | awk '{print $3}' | sort -h | tail -1)
+      python3 - "$lim" "$use" <<'PY'
+      import sys,re
+      u={'Ki':1/1024,'Mi':1,'Gi':1024,'K':1/1024,'M':1,'G':1024}
+      def mi(v):
+          m=re.match(r'([0-9.]+)([A-Za-z]*)',v or '0'); return float(m.group(1))*u.get(m.group(2),1/1048576)
+      sys.exit(0 if mi(sys.argv[1]) >= 1.5*mi(sys.argv[2]) and mi(sys.argv[2])>0 else 1)
+      PY
+    fix: kubectl top pods 로 본 사용량 × 1.5 이상으로 limits.memory 를 잡거나, 앱 설정(APP_MEM_MB)을 원래대로 줄이세요
+    ref: 해답 — 재발 방지
+  - name: app 네임스페이스에 앱 사용량보다 작은 기본 메모리 상한(LimitRange)이 남아 있지 않다
+    run: |
+      d=$(kubectl -n app get limitrange -o json | jq -r '[.items[].spec.limits[]?|select(.type=="Container")|.default.memory//empty]|first // ""')
+      [ -z "$d" ] || python3 -c "import re,sys;m=re.match(r'([0-9.]+)(Mi|Gi)','$d');sys.exit(0 if m and float(m.group(1))*(1024 if m.group(2)=='Gi' else 1)>=128 else 1)"
+    fix: 기본값이 너무 작으면 LimitRange 를 고치거나 지우고, 앱에는 limits 를 명시하세요
+    ref: 해답 — 변형 ③ 조치

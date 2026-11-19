@@ -11,7 +11,61 @@
 #
 # 10초마다 한 줄씩 요약을 출력하고, ~/load-<시각>.csv 에도 기록한다.
 #   열: 시각, 요청수, 2xx, 4xx, 5xx, 연결오류, 평균ms, p95ms, 상태코드별 건수
+#
+# EKS 과정, ALB 가 없는 날(workload·cluster) — CloudShell에서 클러스터 안에 부하 파드를 띄운다
+#   bash ~/opslab/common/load.sh pod          부하 파드 시작(초당 10건, 샘플 앱 Service 로)
+#   bash ~/opslab/common/load.sh pod log      최근 요약 보기 (10초마다 한 줄)
+#   bash ~/opslab/common/load.sh pod stop     부하 파드 중지
 set -euo pipefail
+if [ "${1:-}" = pod ]; then
+  source "$(dirname "$(readlink -f "$0")")/eks.sh"
+  case "${2:-start}" in
+    stop) kubectl -n "$APP_NS" delete deployment opslab-load --ignore-not-found; exit 0 ;;
+    log)  kubectl -n "$APP_NS" logs deploy/opslab-load --tail="${3:-12}"; exit 0 ;;
+  esac
+  kubectl apply -f - <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opslab-load
+  namespace: $APP_NS
+  labels: { app.kubernetes.io/name: opslab-load, course: opslab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: opslab-load } }
+  template:
+    metadata: { labels: { app.kubernetes.io/name: opslab-load, course: opslab } }
+    spec:
+      containers:
+        - name: load
+          image: $(img app)
+          resources: { requests: { cpu: 20m, memory: 32Mi }, limits: { memory: 64Mi } }
+          env: [{ name: TARGET, value: "http://opslab-app.$APP_NS.svc" }, { name: RPS, value: "10" }]
+          command: ["python3", "-u", "-c"]
+          args:
+            - |
+              import os, time, random, urllib.request, urllib.error, concurrent.futures as cf, datetime
+              t, rps = os.environ["TARGET"], float(os.environ["RPS"])
+              def hit():
+                  p = "/cache" if random.random() < 0.1 else "/api"
+                  s = time.time()
+                  try:
+                      with urllib.request.urlopen(t + p, timeout=5) as r: c = r.status
+                  except urllib.error.HTTPError as e: c = e.code
+                  except Exception: c = 0
+                  return c, (time.time() - s) * 1000
+              ex = cf.ThreadPoolExecutor(32)
+              while True:
+                  end, fs = time.time() + 10, []
+                  while time.time() < end:
+                      fs.append(ex.submit(hit)); time.sleep(1 / rps)
+                  rs = [f.result() for f in fs]; lat = sorted(x[1] for x in rs) or [0]
+                  ok = sum(1 for c, _ in rs if 200 <= c < 300); e5 = sum(1 for c, _ in rs if c >= 500); ce = sum(1 for c, _ in rs if c == 0)
+                  print(f"{datetime.datetime.now():%H:%M:%S} req={len(rs)} ok={ok} 5xx={e5} conn_err={ce} avg_ms={sum(lat)/len(lat):.0f} p95_ms={lat[int(len(lat)*0.95)-1]:.0f}")
+YAML
+  echo "✅ 부하 파드를 시작했습니다. 1분 뒤 'bash ~/opslab/common/load.sh pod log' 로 확인하세요."
+  exit 0
+fi
 
 URL=""; RPS=20; DUR=0; MIX="/api:95,/slow?sec=1:5"; NAME=""
 while getopts "u:r:t:m:n:" o; do

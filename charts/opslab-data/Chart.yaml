@@ -1,0 +1,6 @@
+apiVersion: v2
+name: opslab-data
+description: Ops Lab 클러스터 내 데이터 계층 — PostgreSQL(pgvector, StatefulSet + EBS)·Redis. Bitnami 를 쓰지 않는 단순 매니페스트
+type: application
+version: 1.0.0
+appVersion: "16"

@@ -17,6 +17,16 @@
                   (sec 모듈: /etc/app/db-cred.env 의 DB_USER·DB_PASSWORD 가 우선 — Vault Agent 가 동적 자격증명으로 갱신)
   VAULT_PROXY     Vault Agent API 프록시 주소 (sec 모듈, 기본 http://127.0.0.1:8100)
   APP_SECRET_ID   Secrets Manager 비밀 이름 (sec 모듈, <학번>/sec/app — app/sec-agent.sh 가 app.env 에 넣음)
+
+EKS 과정(컨테이너) 전용 환경변수 — 설정하지 않으면 아무 동작도 하지 않는다(1단계 EC2·ECS 실행과 무관)
+  APP_START_DELAY       시작 지연(초). 느리게 뜨는 앱 흉내 (startup probe 실습)
+  APP_MEM_MB            시작할 때 잡아 두는 메모리(MB). 메모리를 많이 쓰는 앱 흉내 (OOMKilled 실습)
+  APP_HEALTH_DELAY      /health 응답 지연(초) (probe timeout 실습)
+  APP_DATA_DIR          시작할 때 표식 파일을 쓰는 디렉터리. 쓰지 못하면 시작 실패 (읽기 전용 파일시스템 실습)
+  APP_DB_CHECK_ON_START 1 이면 시작할 때 DB 에 접속해 보고, 실패하면 종료 (CrashLoopBackOff 실습)
+  REDIS_HOST, REDIS_PORT /cache 가 쓰는 Redis 주소
+  /cache  Redis 조회(캐시 적중이면 hit, 아니면 DB 에서 읽어 넣고 miss)
+  /aws    IRSA 로 받은 AWS 신원 확인(STS GetCallerIdentity)
 """
 import os
 import random
@@ -28,7 +38,38 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 
 HOSTNAME = socket.gethostname()
-STARTED_AT = time.time()
+
+
+def _startup():
+    """컨테이너 시작 동작(EKS 과정). gunicorn --preload 로 마스터에서 한 번만 실행된다. 실패하면 프로세스가 종료된다."""
+    delay = float(os.environ.get("APP_START_DELAY", "0") or 0)
+    if delay > 0:
+        print(f"startup: warming up for {delay:.0f}s", flush=True)
+        time.sleep(delay)
+    mb = int(os.environ.get("APP_MEM_MB", "0") or 0)
+    if mb > 0:
+        print(f"startup: allocating {mb}MB cache", flush=True)
+        globals()["_BALLAST"] = bytearray(os.urandom(1024 * 1024)) * mb   # 실제로 페이지를 채워 RSS 에 잡히게 한다
+    d = os.environ.get("APP_DATA_DIR", "")
+    if d:
+        path = os.path.join(d, "started")
+        try:
+            os.makedirs(d, exist_ok=True)
+            with open(path, "w") as f:
+                f.write(str(time.time()))
+        except OSError as exc:
+            raise SystemExit(f"startup: cannot write {path}: {exc}")
+    if os.environ.get("APP_DB_CHECK_ON_START") == "1":
+        c = _db_conf()
+        try:
+            import psycopg2
+
+            psycopg2.connect(host=c.get("DB_HOST") or "localhost", port=int(c.get("DB_PORT") or 5432),
+                             dbname=c.get("DB_NAME") or "opslab", user=c.get("DB_USER") or "app",
+                             password=c.get("DB_PASSWORD") or "", connect_timeout=5).close()
+            print(f"startup: database {c.get('DB_HOST')} reachable", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            raise SystemExit(f"startup: database check failed (DB_HOST={c.get('DB_HOST')}): {str(exc).strip()[:200]}")
 
 
 def _base():
@@ -41,7 +82,53 @@ def _base():
 
 @app.route("/health")
 def health():
+    hd = float(os.environ.get("APP_HEALTH_DELAY", "0") or 0)
+    if hd > 0:
+        time.sleep(hd)
     return jsonify(status="ok", **_base())
+
+
+@app.route("/cache")
+def cache():
+    """Redis 에 최근 DB 조회 결과(hits 개수)를 30초 캐시한다. 적중이면 hit, 아니면 DB 에서 읽고 miss."""
+    rh = os.environ.get("REDIS_HOST", "")
+    if not rh:
+        return jsonify(status="not_configured", message="REDIS_HOST is not set", **_base()), 503
+    try:
+        import redis
+
+        r = redis.Redis(host=rh, port=int(os.environ.get("REDIS_PORT", "6379")), socket_timeout=2)
+        v = r.get("opslab:rows")
+        if v is not None:
+            return jsonify(status="ok", cache="hit", rows=int(v), **_base())
+        c = _db_conf()
+        import psycopg2
+
+        conn = psycopg2.connect(host=c.get("DB_HOST"), port=int(c.get("DB_PORT") or 5432), dbname=c.get("DB_NAME") or "opslab",
+                                user=c.get("DB_USER") or "app", password=c.get("DB_PASSWORD") or "", connect_timeout=3)
+        try:
+            with conn, conn.cursor() as cur:
+                cur.execute("create table if not exists hits (id bigserial primary key, at timestamptz default now(), host text)")
+                cur.execute("select count(*) from hits")
+                n = cur.fetchone()[0]
+        finally:
+            conn.close()
+        r.setex("opslab:rows", 30, n)
+        return jsonify(status="ok", cache="miss", rows=n, **_base())
+    except Exception as exc:  # noqa: BLE001
+        return jsonify(status="error", message=str(exc).strip()[:200], **_base()), 500
+
+
+@app.route("/aws")
+def aws_identity():
+    """파드가 쓰는 AWS 신원(IRSA 역할이면 assumed-role/<역할>). 권한 없으면 오류 메시지를 그대로 보여 준다."""
+    try:
+        import boto3
+
+        ident = boto3.client("sts", region_name=os.environ.get("AWS_REGION", "ap-northeast-2")).get_caller_identity()
+        return jsonify(status="ok", arn=ident["Arn"], **_base())
+    except Exception as exc:  # noqa: BLE001
+        return jsonify(status="error", message=str(exc).strip()[:300], **_base()), 500
 
 
 @app.route("/api")
@@ -170,6 +257,9 @@ def note():
     except Exception as exc:  # noqa: BLE001
         return jsonify(status="error", message=str(exc).strip()[:300], **_base()), 500
 
+
+_startup()
+STARTED_AT = time.time()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("APP_PORT", "8080")))

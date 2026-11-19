@@ -1,0 +1,6 @@
+apiVersion: v2
+name: opslab-app
+description: Ops Lab 샘플 앱 (EKS 과정 공통) — Deployment·Service·Ingress·HPA·PDB·probe 기본값
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
