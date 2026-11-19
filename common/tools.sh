@@ -12,7 +12,7 @@ if ! "$B/kubectl" version --client 2>/dev/null | grep -q "v$KV"; then
   chmod +x "$B/kubectl"
 fi
 if ! command -v "$B/helm" >/dev/null; then
-  curl -fsSL https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz | tar xz linux-amd64/helm --strip-components 1 -C "$B"
+  curl -fsSL https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz | tar xz -C "$B" --strip-components 1 linux-amd64/helm
 fi
 if ! command -v "$B/eksctl" >/dev/null; then
   curl -fsSL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz" | tar xz -C "$B"
