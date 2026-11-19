@@ -24,7 +24,6 @@ images:
   postgres: pgvector/pgvector:pg16
   redis: library/redis:7.4-alpine
   busybox: library/busybox:1.37
-  metrics-server: registry.k8s.io/metrics-server/metrics-server:v0.9.0
   headlamp: ghcr.io/headlamp-k8s/headlamp:v0.46.0
 gitops_base_tag: eks-v1
 days:

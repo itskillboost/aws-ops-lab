@@ -7,7 +7,8 @@ stage_cluster() {   # 사전 조건: 아침 환경 층(K1) 배포와 Headlamp
   kubectl get storageclass gp3 >/dev/null 2>&1 && ok "StorageClass gp3" || ng "StorageClass gp3 없음" "bash ~/opslab/common/start.sh workload"
 }
 stage_metrics() {   # 구축 1: metrics-server
-  kubectl -n kube-system get deploy metrics-server >/dev/null 2>&1 && ok "metrics-server 설치됨" || { ng "metrics-server 없음" "구축 1 — helm install metrics-server"; return; }
+  [ "$(aws eks describe-addon --cluster-name "$CLUSTER" --addon-name metrics-server --query addon.status --output text 2>/dev/null)" = ACTIVE ] \
+    && ok "metrics-server 애드온 ACTIVE" || { ng "metrics-server 애드온이 없거나 ACTIVE 가 아님" "구축 1 — aws eks create-addon … metrics-server"; return; }
   kubectl top nodes >/dev/null 2>&1 && ok "kubectl top nodes 동작" || ng "kubectl top 이 아직 안 됩니다(설치 뒤 1분 정도 걸림)" "1분 뒤 다시 확인"
 }
 stage_data() {      # 구축 2: 네임스페이스와 PostgreSQL·Redis

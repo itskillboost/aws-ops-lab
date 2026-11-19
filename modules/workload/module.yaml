@@ -2,7 +2,7 @@ id: workload
 title: 워크로드 장애
 hours: 8
 requires: K1        # 아침에 배포: L1 네트워크 + K1 클러스터(Headlamp 포함)
-builds: K2          # 직접 구축: metrics-server, PostgreSQL·Redis, 샘플 앱(Helm) = K2 층
+builds: K2          # 직접 구축: metrics-server, PostgreSQL·Redis, 샘플 앱(Helm) = K2 층 (따라잡기 start.sh workload full 은 layers/k2-workload.sh 로 같은 명령을 실행)
 topics:
   - Pod Pending — 리소스 부족, 노드 셀렉터, taint
   - CrashLoopBackOff 추적

@@ -1,13 +1,16 @@
 #!/bin/bash
 # K2 층(워크로드 = workload 모듈 완료 상태) — 쿠버네티스 리소스만 있는 층. start.sh 가 실행한다. 다시 실행해도 안전하다.
-#   metrics-server → app 네임스페이스 → PostgreSQL·Redis(opslab-data) → 샘플 앱(opslab-app)
+#   metrics-server(관리형 애드온) → app 네임스페이스 → PostgreSQL·Redis(opslab-data) → 샘플 앱(opslab-app)
 # workload 모듈 1단계 구축 따라하기와 같은 명령이다(modules/workload/full.sh 도 이 파일을 실행한다).
 set -uo pipefail
 source "$(dirname "$(readlink -f "$0")")/../common/eks.sh"
 kube_login
-helm upgrade --install metrics-server "$EKS_ROOT/vendor/charts/metrics-server" -n kube-system --wait --timeout 5m \
-  --set image.repository="$(img_repo metrics-server)" --set image.tag="$(img_tag metrics-server)" >/dev/null \
-  || { echo "❌ metrics-server 설치 실패"; exit 1; }
+# metrics-server: EKS 관리형 애드온(AWS 가 이미지·버전을 관리)
+aws eks describe-addon --cluster-name "$CLUSTER" --addon-name metrics-server >/dev/null 2>&1 \
+  || aws eks create-addon --cluster-name "$CLUSTER" --addon-name metrics-server --resolve-conflicts OVERWRITE \
+       --tags Course=opslab,Module=workload,Owner="$SID" >/dev/null \
+  || { echo "❌ metrics-server 애드온 생성 실패"; exit 1; }
+aws eks wait addon-active --cluster-name "$CLUSTER" --addon-name metrics-server || { echo "❌ metrics-server 애드온이 ACTIVE 가 되지 않음"; exit 1; }
 echo "  metrics-server"
 kubectl create namespace "$APP_NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 kubectl label namespace "$APP_NS" course=opslab --overwrite >/dev/null
