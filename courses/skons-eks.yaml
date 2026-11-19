@@ -18,7 +18,7 @@ eks_version_prev: "1.36"
 node_instance_type: m6i.large     # 파드 보안 그룹(podnet-6) 지원 유형. 서울 4개 AZ 제공 확인
 node_count: 2
 # 미러 레지스트리(강사 ECR Public). tools/mirror-images.sh 가 images 를 같은 태그로 복사한다.
-registry: TBD                     # 예) public.ecr.aws/a1b2c3d4/opslab
+registry: public.ecr.aws/x4d0l7d9/opslab   # 리허설 계정(6762) 미러 — Day 0에 강사 계정 값으로 바꾼다
 images:
   app: opslab-app:1.0.0           # 저장소 app/ 에서 빌드(tools/mirror-images.sh build)
   postgres: pgvector/pgvector:pg16

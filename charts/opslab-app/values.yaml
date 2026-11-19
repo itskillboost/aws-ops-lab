@@ -1,6 +1,6 @@
 # Ops Lab 샘플 앱 기본값. 모듈은 --set 또는 values 파일로 필요한 것만 바꾼다.
 image:
-  repository: public.ecr.aws/REPLACE/opslab-app   # start.sh 가 과정 파일 registry 로 채운다
+  repository: public.ecr.aws/x4d0l7d9/opslab/opslab-app   # start.sh 가 과정 파일 registry 로 채운다
   tag: "1.0.0"
   pullPolicy: IfNotPresent
 replicaCount: 2
