@@ -31,3 +31,21 @@
 | sec · iac · cicd · auto · rel | (작성 예정) | | |
 
 이름: `<학번>-<모듈ID|base>-<역할>` · 태그: `Course=opslab`, `Module=<모듈ID|base>`, `Owner=<학번>` · Lab ID: `<모듈ID>-<번호>` · 주입 기록: SSM `/opslab/injections/<Lab ID>`
+
+## EKS 과정(2단계) — 과정 파일 `courses/skons-eks.yaml`
+
+| 경로 | 내용 |
+|---|---|
+| `common/tools.sh` | CloudShell 홈(~/bin)에 kubectl·helm·eksctl·argocd 설치 |
+| `common/eks.sh` | EKS 공통 함수(과정 값 cval, 미러 이미지 주소 img, kubeconfig) |
+| `common/start.sh <모듈ID> [full] \| status` | L1 → K1… 층을 이어서 배포(끝난 층은 건너뜀), 작업 폴더·가설·런북 양식 생성 |
+| `common/inject.sh retry <Lab ID>` | 원복한 Lab 에 같은 변형 재주입(재도전). `done` 은 인지·원인 확정 시각을 묻는다 |
+| `common/check.sh <모듈ID> <단계>\|all\|day0\|final` | 구축 확인 지점 ✅/❌ |
+| `common/review.sh <Lab ID>\|<모듈ID>\|final` | 실습 검토(review.yaml), 포트폴리오 |
+| `common/headlamp.sh` | Headlamp 접속 허용 IP 등록 + 8시간 로그인 토큰 |
+| `common/load.sh pod [log\|stop]` | ALB 가 없는 날의 클러스터 내 부하 파드 |
+| `layers/k1-cluster.yaml` + `.init.sh` | K1: EKS·노드 그룹·OIDC·애드온·Container Insights·접근 항목 + StorageClass·Headlamp |
+| `layers/k2-workload.sh` | K2: metrics-server(관리형 애드온)·PostgreSQL·Redis·샘플 앱 |
+| `charts/opslab-app`, `charts/opslab-data`, `vendor/charts/` | 앱·데이터 차트, 버전 고정 외부 차트 |
+| `app/Dockerfile` | 샘플 앱 컨테이너(강사가 `tools/mirror-images.sh` 로 ECR Public 에 올림) |
+| `modules/workload/` | 워크로드 장애(workload-1~6, faults/*/review.yaml 포함) |
