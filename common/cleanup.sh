@@ -87,10 +87,18 @@ eks_postdelete() {  # 스택 삭제 뒤: 시크릿 즉시 삭제(과정 내내 �
            $(aws logs describe-log-groups --log-group-name-prefix "/aws/eks/$SID-" --query 'logGroups[].logGroupName' --output text); do
     aws logs delete-log-group --log-group-name "$g" && echo "  로그 그룹 삭제: $g"
   done
-  # 잔존 검사: 쿠버네티스가 만든 것까지 태그로 찾는다
-  local left; left=$( { tagged elasticloadbalancing:loadbalancer; tagged elasticloadbalancing:targetgroup; tagged ec2:volume; tagged ec2:instance; } )
+  # 잔존 검사: 쿠버네티스가 만든 것까지 태그로 찾는다(태그 검색은 지운 지 얼마 안 된 리소스도 보여 주므로 실제로 있는지 다시 확인)
+  local left="" a
+  for a in $(tagged elasticloadbalancing:loadbalancer); do
+    aws elbv2 describe-load-balancers --load-balancer-arns "$a" >/dev/null 2>&1 && left+="$a"$'\n'; done
+  for a in $(tagged elasticloadbalancing:targetgroup); do
+    aws elbv2 describe-target-groups --target-group-arns "$a" >/dev/null 2>&1 && left+="$a"$'\n'; done
+  left+=$(aws ec2 describe-volumes --filters Name=tag:Owner,Values="$SID" --query 'Volumes[].VolumeId' --output text | tr '\t' '\n')
+  left+=$(aws ec2 describe-instances --filters Name=tag:Owner,Values="$SID" Name=instance-state-name,Values=pending,running,stopping,stopped \
+          --query 'Reservations[].Instances[].InstanceId' --output text | tr '\t' '\n')
+  left=$(sed '/^$/d' <<<"$left")
   if [ -n "$left" ]; then
-    echo "  ⚠️ 태그가 붙은 잔존 리소스가 있습니다 — 콘솔에서 확인 후 삭제하세요:"; sed 's/^/    /' <<<"$left"
+    echo "  ⚠️ 남은 리소스가 있습니다 — cleanup.sh 를 한 번 더 실행하고, 그래도 남으면 콘솔에서 확인 후 삭제하세요:"; sed 's/^/    /' <<<"$left"
   fi
   # 클러스터가 지워진 뒤 남는 쿠버네티스 로드밸런서 보안 그룹(k8s-elb-*)과 사용 중이 아닌 ENI
   for g in $(aws ec2 describe-security-groups --filters Name=tag:kubernetes.io/cluster/"$SID-cluster-eks",Values=owned --query 'SecurityGroups[].GroupId' --output text 2>/dev/null); do
