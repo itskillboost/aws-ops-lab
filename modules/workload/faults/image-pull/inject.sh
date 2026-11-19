@@ -15,6 +15,8 @@ case $V in
      aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="${P##*:}" >/dev/null 2>&1 || true   # 캐시를 미리 채운다(내 권한)
      ROLE=$SID-cluster-node-role
      aws iam detach-role-policy --role-name "$ROLE" --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-     kubectl -n "$NS" set image deploy/"$DEP" app="$ACCT.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:${P##*:}" >/dev/null ;;
+     kubectl -n "$NS" set image deploy/"$DEP" app="$ACCT.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:${P##*:}" >/dev/null
+     # 노드에 이미 받아 둔 이미지가 있어도 매번 레지스트리에 확인하게(재도전 때도 증상이 나도록)
+     patch --type json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Always"}]' ;;
 esac
 record $V
