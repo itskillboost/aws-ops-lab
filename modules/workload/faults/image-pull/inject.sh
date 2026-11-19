@@ -10,9 +10,9 @@ case $V in
   2) kubectl -n "$NS" set image deploy/"$DEP" app="${IMG/public.ecr.aws/pubilc.ecr.aws}" >/dev/null ;;   # 레지스트리 주소 오타
   3) # 같은 이미지를 내 계정 ECR(풀스루 캐시)로 받게 바꾸고, 노드 역할에서 ECR 읽기 정책을 뗀다
      ACCT=$(aws sts get-caller-identity --query Account --output text)
-     aws ecr create-pull-through-cache-rule --ecr-repository-prefix "$SID-workload" --upstream-registry-url public.ecr.aws >/dev/null 2>&1
+     aws ecr create-pull-through-cache-rule --ecr-repository-prefix "$SID-workload" --upstream-registry-url public.ecr.aws >/dev/null 2>&1 || true   # 이미 있으면 그대로
      P=${IMG#public.ecr.aws/}; REPO="$SID-workload/${P%:*}"
-     aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="${P##*:}" >/dev/null 2>&1   # 캐시를 미리 채운다(내 권한)
+     aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="${P##*:}" >/dev/null 2>&1 || true   # 캐시를 미리 채운다(내 권한)
      ROLE=$SID-cluster-node-role
      aws iam detach-role-policy --role-name "$ROLE" --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
      kubectl -n "$NS" set image deploy/"$DEP" app="$ACCT.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO:${P##*:}" >/dev/null ;;
