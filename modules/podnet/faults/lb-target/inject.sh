@@ -12,7 +12,7 @@ case $V in
      [ "$(jq length <<<"$P")" -ge 1 ] || { echo "ALB 허용 규칙(8080)을 찾지 못했습니다"; exit 1; }
      save sgrules "$(jq -c '[.[]|{g:.GroupId,s:.ReferencedGroupInfo.GroupId,f:.FromPort,t:.ToPort,p:.IpProtocol}]' <<<"$P")"
      aws ec2 revoke-security-group-ingress --group-id "$CSG" --security-group-rule-ids $(jq -r '.[].SecurityGroupRuleId' <<<"$P") >/dev/null ;;
-  3) # 타깃 유형을 instance 로 바꿨는데 Service 는 ClusterIP 그대로(instance 는 NodePort 가 필요)
-     ann alb.ingress.kubernetes.io/target-type=instance ;;
+  3) # 건강검진 포트를 앱이 듣지 않는 8081 로 — 경로는 맞지만 엉뚱한 문을 두드린다
+     ann alb.ingress.kubernetes.io/healthcheck-port=8081 ;;
 esac
 record $V

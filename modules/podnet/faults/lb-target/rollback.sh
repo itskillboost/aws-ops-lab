@@ -10,5 +10,6 @@ if [ -n "$R" ] && [ "$R" != None ]; then
   aws ssm delete-parameter --name "$STATE/sgrules" >/dev/null 2>&1
 fi
 app_restore
+kubectl -n "$NS" annotate ingress "$DEP" alb.ingress.kubernetes.io/healthcheck-port- >/dev/null 2>&1   # apply 로는 덧붙인 어노테이션이 지워지지 않는다
 ingress_restore
 wait_alb_healthy && echo "  ALB 로 /health 200 확인" || echo "  ⚠️ ALB 응답이 아직 정상이 아님"

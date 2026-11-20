@@ -12,7 +12,11 @@ checks:
   - name: Ingress 의 건강검진 경로가 앱의 /health 이고 타깃 유형이 ip 다
     run: "test \"$(kubectl -n app get ingress opslab-app -o jsonpath='{.metadata.annotations.alb\\.ingress\\.kubernetes\\.io/healthcheck-path} {.metadata.annotations.alb\\.ingress\\.kubernetes\\.io/target-type}')\" = '/health ip'"
     fix: kubectl -n app annotate ingress opslab-app --overwrite alb.ingress.kubernetes.io/healthcheck-path=/health alb.ingress.kubernetes.io/target-type=ip
-    ref: 해답 — 변형 ①③ 조치
+    ref: 해답 — 변형 ① 조치
+  - name: Ingress 에 건강검진 포트를 따로 지정하지 않았다(타깃 포트로 검사)
+    run: "test -z \"$(kubectl -n app get ingress opslab-app -o jsonpath='{.metadata.annotations.alb\\.ingress\\.kubernetes\\.io/healthcheck-port}' | grep -v traffic-port)\""
+    fix: kubectl -n app annotate ingress opslab-app alb.ingress.kubernetes.io/healthcheck-port-
+    ref: 해답 — 변형 ③ 조치
   - name: 클러스터 보안 그룹이 ALB 보안 그룹에서 오는 8080 을 허용한다
     run: |
       CSG=$(aws eks describe-cluster --name $SID-cluster-eks --query cluster.resourcesVpcConfig.clusterSecurityGroupId --output text)
