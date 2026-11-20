@@ -88,8 +88,11 @@ dev_iam_role() {  # 개발자 역할: 같은 계정의 IAM 사용자가 빌릴 �
   if aws eks describe-access-entry --cluster-name "$CLUSTER" --principal-arn "$arn" >/dev/null 2>&1; then
     aws eks update-access-entry --cluster-name "$CLUSTER" --principal-arn "$arn" --kubernetes-groups opslab-dev >/dev/null || return 1
   else
-    aws eks create-access-entry --cluster-name "$CLUSTER" --principal-arn "$arn" --kubernetes-groups opslab-dev \
-      --tags Course=opslab,Module=access,Owner="$SID" >/dev/null || return 1
+    for i in $(seq 1 12); do   # 막 만든 IAM 역할은 퍼지는 데 몇 초 걸린다("invalid principal")
+      aws eks create-access-entry --cluster-name "$CLUSTER" --principal-arn "$arn" --kubernetes-groups opslab-dev \
+        --tags Course=opslab,Module=access,Owner="$SID" >/dev/null 2>&1 && break
+      [ "$i" -eq 12 ] && { echo "❌ 접근 항목 생성 실패"; return 1; }; sleep 10
+    done
   fi
 }
 
