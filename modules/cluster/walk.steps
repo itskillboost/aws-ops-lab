@@ -1,0 +1,47 @@
+# cluster 따라하기 명령 — Notion 「Day 2 · 클러스터 상태 진단」 페이지와 같은 순서(페이지를 고치면 이 파일도 고친다)
+source ~/opslab-env.sh
+cd ~/opslab && git pull -q
+bash ~/opslab/common/start.sh cluster
+source ~/opslab-env.sh
+bash ~/opslab/common/check.sh cluster env
+# 구축 1 · 클러스터
+source ~/opslab/common/eks.sh
+aws eks create-cluster --name $SID-cluster-eks --kubernetes-version $(cval eks_version) \
+  --role-arn $CTL_ROLE_ARN \
+  --resources-vpc-config subnetIds=$APP_SUBNETS,endpointPublicAccess=true,endpointPrivateAccess=true \
+  --access-config authenticationMode=API,bootstrapClusterCreatorAdminPermissions=true \
+  --tags Course=opslab,Module=cluster,Owner=$SID --query cluster.status
+aws eks wait cluster-active --name $SID-cluster-eks
+aws eks update-kubeconfig --name $SID-cluster-eks --alias $SID
+kubectl get svc
+bash ~/opslab/common/check.sh cluster cluster
+# 구축 2 · 컨트롤 플레인 로그 (노드 그룹보다 먼저 — 클러스터 설정 변경은 한 번에 하나)
+aws eks update-cluster-config --name $SID-cluster-eks \
+  --logging '{"clusterLogging":[{"types":["api","audit","authenticator","controllerManager","scheduler"],"enabled":true}]}' --query update.status
+aws eks wait cluster-active --name $SID-cluster-eks
+# 구축 3 · 노드 그룹
+aws eks create-nodegroup --cluster-name $SID-cluster-eks --nodegroup-name $SID-cluster-ng \
+  --node-role $WORKER_ROLE_ARN --subnets $(tr ',' ' ' <<<"$APP_SUBNETS") \
+  --ami-type AL2023_x86_64_STANDARD --instance-types $(cval node_instance_type) \
+  --scaling-config minSize=2,maxSize=4,desiredSize=2 --launch-template id=$WORKER_LAUNCH_TEMPLATE \
+  --labels opslab/pool=default --tags Course=opslab,Module=cluster,Owner=$SID --query nodegroup.status
+aws eks wait nodegroup-active --cluster-name $SID-cluster-eks --nodegroup-name $SID-cluster-ng
+kubectl get nodes -o wide
+bash ~/opslab/common/check.sh cluster nodes
+bash ~/opslab/common/check.sh cluster logging
+# 구축 4 · Container Insights
+aws eks create-addon --cluster-name $SID-cluster-eks --addon-name amazon-cloudwatch-observability \
+  --tags Course=opslab,Module=cluster,Owner=$SID --query addon.status
+aws eks wait addon-active --cluster-name $SID-cluster-eks --addon-name amazon-cloudwatch-observability
+kubectl -n amazon-cloudwatch get pods
+bash ~/opslab/common/check.sh cluster insights
+# 구축 5 · 주변 구성
+bash ~/opslab/modules/cluster/extras/setup.sh
+bash ~/opslab/common/headlamp.sh
+bash ~/opslab/common/check.sh cluster extras
+# 2단계 · 정상 상태 정의
+bash ~/opslab/common/load.sh pod
+sleep 70; bash ~/opslab/common/load.sh pod log
+bash ~/opslab/modules/cluster/baseline/verify.sh
+kubectl get nodes -o custom-columns='NODE:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,MEM:.status.conditions[?(@.type=="MemoryPressure")].status,DISK:.status.conditions[?(@.type=="DiskPressure")].status,PID:.status.conditions[?(@.type=="PIDPressure")].status'
+bash ~/opslab/common/check.sh cluster all
