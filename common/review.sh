@@ -113,11 +113,15 @@ def review_lab(lab):
         items.append(("no", "해결 방식", "장애가 아직 주입된 상태입니다", f"해결한 뒤 verify.sh → bash ~/opslab/common/inject.sh done {lab}"))
     # 3) verify
     rc, out = sh(f"bash '{fdir}/verify.sh'", 180)
-    fails = [l.strip() for l in out.splitlines() if "[FAIL]" in l]
+    fails, lines = [], out.splitlines()
+    for i, l in enumerate(lines):           # FAIL 줄과 바로 아래 들여쓴 상세 줄(예: 압박 노드 이름)을 함께 보여 준다
+        if "[FAIL]" in l:
+            det = [x.strip() for x in lines[i+1:i+3] if x.startswith("         ")]
+            fails.append(" ".join([l.strip().replace("[FAIL] ", "")] + det))
     if rc == 0:
         items.append(("ok", "verify.sh", "정상 상태 판정 통과", ""))
     else:
-        items.append(("no", "verify.sh", (fails[0] if fails else "판정 실패").replace("[FAIL] ", ""), f"bash ~/opslab/modules/{mod}/faults/{row['fault']}/verify.sh 의 FAIL 항목부터 고치세요"))
+        items.append(("no", "verify.sh", " / ".join(fails) if fails else "판정 실패", f"bash ~/opslab/modules/{mod}/faults/{row['fault']}/verify.sh 의 FAIL 항목부터 고치세요"))
     # 4) 재발 방지 (review.yaml)
     rv = yaml.safe_load(open(os.path.join(fdir, "review.yaml")))
     for c in rv.get("checks", []):
