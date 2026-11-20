@@ -39,13 +39,15 @@ verify_main() {
         "\(.metadata.name) \(.status.phase) \([.status.initContainerStatuses[]?,.status.containerStatuses[]? | .state | keys[0] + ":" + ((.waiting.reason // .terminated.reason // "") )] | join(","))"')
   [ -z "$bad" ] && ok "모든 파드 Running·Ready (Pending 0개)" || { ng "Running·Ready 가 아닌 파드:"; sed 's/^/         /' <<<"$bad"; }
   for x in postgres redis; do
-    [ "$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=$x -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null)" = true ] \
+    # 축출(Evicted)·완료된 옛 파드는 빼고, 지금 돌고 있는 파드가 Ready 인지 본다
+    [ "$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=$x --field-selector=status.phase=Running -o jsonpath='{.items[*].status.containerStatuses[0].ready}' 2>/dev/null | grep -cw true)" -ge 1 ] \
       && ok "$x Ready" || ng "$x 가 Ready 가 아님"
   done
 
   echo "[4] 사용자 응답 (부하 파드 최근 1분)"
   local lines e5 ce req avg
-  lines=$(kubectl -n "$NS" logs deploy/opslab-load --since=70s 2>/dev/null | grep 'req=' | tail -6)
+  local lp; lp=$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=opslab-load --field-selector=status.phase=Running -o name 2>/dev/null | head -1)
+  lines=$([ -n "$lp" ] && kubectl -n "$NS" logs "$lp" --since=70s 2>/dev/null | grep 'req=' | tail -6)
   if [ -z "$lines" ]; then ng "요청 수 0건 — 부하 파드가 없습니다: bash ~/opslab/common/load.sh pod"
   else
     req=$(grep -o 'req=[0-9]*' <<<"$lines" | cut -d= -f2 | awk '{s+=$1}END{print s+0}')
