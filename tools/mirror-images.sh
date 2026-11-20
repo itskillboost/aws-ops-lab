@@ -8,7 +8,7 @@ ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 COURSE_FILE="$ROOT/courses/${COURSE:?COURSE=<과정ID> 를 지정하세요}.yaml"
 E="aws --region us-east-1 ecr-public"
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws >/dev/null
-sed -n '/^images:/,/^[a-z]/p' "$COURSE_FILE" | sed -n 's/^  \([a-z-]*\): *\([^ #]*\).*/\1 \2/p' | while read -r key src; do
+sed -n '/^images:/,/^[a-z]/p' "$COURSE_FILE" | sed -n 's/^  \([a-z0-9-]*\): *\([^ #]*\).*/\1 \2/p' | while read -r key src; do
   name=${src##*/}; repo=opslab/${name%%:*}; tag=${name##*:}
   $E describe-repositories --repository-names "$repo" </dev/null >/dev/null 2>&1 \
     || $E create-repository --repository-name "$repo" --catalog-data "description=Ops Lab mirror of $src" </dev/null >/dev/null
