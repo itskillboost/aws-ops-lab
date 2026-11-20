@@ -39,5 +39,5 @@ docker run --rm --network host -e HL -e TOKEN -e POD -e NODE -v $O:/out mcr.micr
 echo "SHOTS_READY"; ls -la $O/*.png
 for i in $(seq 1 120); do J=$(aws ssm get-parameter --name /opslab/tmp/upload --with-decryption --query Parameter.Value --output text 2>/dev/null) && break; sleep 10; done
 echo "$J" | jq -r 'to_entries[]|[.key,.value.url,.value.auth]|@tsv' | while IFS=$'\t' read -r f u a; do
-  echo "upload $f $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "authorization: $a" -F "file=@$O/$f;type=image/png" "$u")"; done
+  echo "upload $f $(curl -s -o /dev/null -w '%{http_code}' -X POST -H "authorization: $a" -F "file=@$O/${f%.png}.png;type=image/png" "$u")"; done
 aws ssm delete-parameter --name /opslab/tmp/upload 2>/dev/null; true
