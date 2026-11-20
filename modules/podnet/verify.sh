@@ -52,6 +52,7 @@ verify_main() {
   else
     for tg in $tgs; do
       h=$(aws elbv2 describe-target-health --target-group-arn "$tg" --query 'TargetHealthDescriptions[].TargetHealth.State' --output text 2>/dev/null)
+      h=$(tr '\t' '\n' <<<"$h" | grep -v draining | xargs)   # draining: 교체돼 빠지는 중인 옛 파드 — 판정에서 뺀다
       n=$(wc -w <<<"$h"); hl=$(grep -ow healthy <<<"$h" | wc -l)
       [ "$n" -ge 1 ] && [ "$hl" -eq "$n" ] && ok "ALB 타깃 $hl/$n healthy" || ng "ALB 타깃 healthy $hl/$n (상태: ${h:-없음})"
     done

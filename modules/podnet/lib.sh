@@ -11,7 +11,8 @@ kubectl -n "$NS" get ingress "$DEP" >/dev/null 2>&1 || { echo "Ingress($DEP)가 
 #           실습 태그(Course=opslab·Owner=<학번>)가 붙은 ENI·보안 그룹 규칙만 바꾼다. 계정 IAM·접근 항목은 바꾸지 않는다.
 set -e   # 주입 명령 하나라도 실패하면 즉시 멈춘다(common/inject.sh 가 원복하고 실패를 알린다)
 K3="$EKS_ROOT/layers/k3-ingress"
-ingress_restore() { sed "s/__SID__/$SID/g" "$K3/ingress.yaml" | kubectl replace --force -f - >/dev/null 2>&1 || sed "s/__SID__/$SID/g" "$K3/ingress.yaml" | kubectl apply -f - >/dev/null; echo "  Ingress 를 기준 상태로 복원"; }
+ingress_restore() {   # apply 만 쓴다 — replace --force 는 Ingress 를 지웠다 다시 만들어 ALB 주소가 바뀐다
+  sed "s/__SID__/$SID/g" "$K3/ingress.yaml" | kubectl apply -f - >/dev/null && echo "  Ingress 를 기준 상태로 복원"; }
 app_restore() {   # 샘플 앱을 차트 기준으로(덧붙인 필드 제거)
   helm -n "$NS" upgrade opslab-app "$EKS_ROOT/charts/opslab-app" --reuse-values --force --wait --timeout 5m >/dev/null \
     && echo "  앱(Deployment·Service)을 차트 기준으로 복원" || { echo "  ⚠️ helm 복원 실패"; return 1; }

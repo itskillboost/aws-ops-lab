@@ -9,6 +9,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing          # 인터넷에서 들어오는 ALB
     alb.ingress.kubernetes.io/target-type: ip                  # ALB 가 파드 IP 로 바로 보낸다(VPC CNI 덕분)
     alb.ingress.kubernetes.io/healthcheck-path: /health        # ALB 의 건강검진 경로
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30   # 빠지는 파드를 30초만 기다림(기본 300초)
     alb.ingress.kubernetes.io/load-balancer-name: __SID__-podnet-alb
     alb.ingress.kubernetes.io/tags: Course=opslab,Module=podnet,Owner=__SID__
 spec:
