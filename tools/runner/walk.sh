@@ -7,7 +7,7 @@ set -uo pipefail
 : "${SID:?}"; MOD=${1:?모듈}; ROOT=$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)
 F="$ROOT/modules/$MOD/walk.steps"; [ -f "$F" ] || { echo "없음: $F"; exit 1; }
 MYIP=$(curl -s https://checkip.amazonaws.com); R=0; N=0
-step() { N=$((N+1)); [ "$N" -lt "${FROM:-1}" ] && return 0; echo; echo "▶▶ [$N] $1"; eval "$1"; local rc=$?; echo "◀◀ rc=$rc"; [ $rc -ne 0 ] && { R=$((R+1)); echo "!!! 실패: $1"; }; }
+step() { N=$((N+1)); [ "$N" -lt "${FROM:-1}" ] && return 0; echo; echo "▶▶ [$N] $1"; eval "$1" </dev/null; local rc=$?; echo "◀◀ rc=$rc"; [ $rc -ne 0 ] && { R=$((R+1)); echo "!!! 실패: $1"; }; }
 buf=""
 while IFS= read -r line || [ -n "$line" ]; do
   [[ -z "$buf" && ( "$line" =~ ^[[:space:]]*# || -z "${line// }" ) ]] && continue
