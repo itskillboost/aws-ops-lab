@@ -28,7 +28,7 @@ case $V in
        fallocate -l $(( a - t*5/100 )) $f && df -h /' >/dev/null ;;
   2) # 메모리: 제한 없는 배치 파드가 노드 메모리를 거의 다 쓸 때까지 조금씩 늘린다 → MemoryPressure → 축출 → 다시 생성 반복
      M=$(on_node "$N" "awk '/MemAvailable/{print int(\$2/1024)}' /proc/meminfo" | tr -dc 0-9)
-     batch "[\"python3\",\"-c\",\"import time\\na=[]\\nwhile len(a)*32<$((M-150)): a.append(bytearray(32*2**20)); time.sleep(1)\\nwhile True: time.sleep(60)\"]" ;;
+     batch "[\"python3\",\"-c\",\"import time\\na=[]\\nwhile len(a)*64<$((M-150)): a.append(bytearray(64*2**20)); time.sleep(1)\\nwhile True: time.sleep(60)\"]" ;;
   3) # 프로세스: 배치 파드 6개가 각자 끝나지 않는 하위 프로세스를 1100개씩 만든다 → 노드 프로세스 수가 한도(8192)의 75% 를 넘어 PIDPressure
      #    (파드 하나는 1228개를 넘게 만들 수 없다 — 파드별 PID 한도. 그래서 여러 개로 나눈다)
      batch '["sh","-c","i=0; while [ $i -lt 1100 ]; do sleep 86400 & i=$((i+1)); done; wait"]' 6 ;;
