@@ -5,3 +5,4 @@ cl-03-nodes | /c/main/nodes
 cl-04-node-full | /c/main/nodes/{NODE}
 cl-05-events | /c/main/events
 cl-06-pods-kube-system | /c/main/pods?namespace=kube-system
+cl-07-pods-app | /c/main/pods?namespace=app
