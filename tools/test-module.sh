@@ -51,7 +51,8 @@ grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY" | while IFS='|' read -r lab fault vars l
       t=$(bash "$ROOT/common/inject.sh" retry "$lab" </dev/null 2>&1 | grep -c '✅'); sleep "${DEEP:-30}"
       LAB=$lab bash "$ROOT/modules/$MOD/faults/$fault/rollback.sh" >>"$LOG" 2>&1; sleep 80   # 해답 조치 대용
       bash "$ROOT/common/inject.sh" done "$lab" </dev/null >>"$LOG" 2>&1
-      x=$(bash "$ROOT/common/review.sh" "$lab" 2>&1 | tee -a "$LOG" | grep -c '❌')
+      bash "$ROOT/common/review.sh" "$lab" > /tmp/rw.out 2>&1; cat /tmp/rw.out >> "$LOG"
+      x=$(grep -c '❌' /tmp/rw.out); [ "$x" -gt 0 ] && grep -F '❌' /tmp/rw.out | sed 's/^/     /'   # 실패 항목을 화면에도
       d="$d 재도전=$t 검토❌=$x"; [ "$t" -ge 1 ] && [ "$x" -eq 0 ] || d="$d!"
     fi
     [ "$r" -ge 1 ] && [ "$b" -ge 1 ] && [[ "$d" != *"!"* ]] && res=OK || { res=XX; echo FAIL >> "$LOG.fail"; }
