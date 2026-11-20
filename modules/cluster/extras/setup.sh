@@ -6,6 +6,11 @@
 set -uo pipefail
 ROOT=$(cd "$(dirname "$(readlink -f "$0")")/../../.." && pwd)
 source "$ROOT/common/eks.sh"
+# 로그 켜기 같은 클러스터 설정 변경이 아직 진행 중(UPDATING)이면 끝날 때까지 기다린다(최대 15분)
+for i in $(seq 1 45); do
+  st=$(aws eks describe-cluster --name "$CLUSTER" --query cluster.status --output text 2>/dev/null)
+  [ "$st" = UPDATING ] || break; [ "$i" = 1 ] && echo "⏳ 클러스터 설정 변경이 진행 중입니다 — 끝날 때까지 기다립니다(보통 3~5분)"; sleep 20
+done
 have_cluster || { echo "❌ 클러스터 $CLUSTER 가 ACTIVE 가 아닙니다 — 구축 1을 먼저 끝내세요."; exit 1; }
 kube_login
 ACCT=$(aws sts get-caller-identity --query Account --output text)

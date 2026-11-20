@@ -16,9 +16,9 @@ aws eks update-kubeconfig --name $SID-cluster-eks --alias $SID
 kubectl get svc
 bash ~/opslab/common/check.sh cluster cluster
 # 구축 2 · 컨트롤 플레인 로그 (노드 그룹보다 먼저 — 클러스터 설정 변경은 한 번에 하나)
-aws eks update-cluster-config --name $SID-cluster-eks \
-  --logging '{"clusterLogging":[{"types":["api","audit","authenticator","controllerManager","scheduler"],"enabled":true}]}' --query update.status
-aws eks wait cluster-active --name $SID-cluster-eks
+UPD=$(aws eks update-cluster-config --name $SID-cluster-eks \
+  --logging '{"clusterLogging":[{"types":["api","audit","authenticator","controllerManager","scheduler"],"enabled":true}]}' --query update.id --output text); echo $UPD
+until [ "$(aws eks describe-update --name $SID-cluster-eks --update-id $UPD --query update.status --output text)" = Successful ]; do echo "  변경 중…"; sleep 20; done; echo "  로그 켜기 완료"
 # 구축 3 · 노드 그룹
 aws eks create-nodegroup --cluster-name $SID-cluster-eks --nodegroup-name $SID-cluster-ng \
   --node-role $WORKER_ROLE_ARN --subnets $(tr ',' ' ' <<<"$APP_SUBNETS") \
