@@ -71,7 +71,7 @@ kl=d.box("kubelet (현장 반장)\n· 10초마다 \"살아 있음\" 보고(Lease
 cr=d.box("containerd (작업자)\n· 컨테이너 실행\n· 로그: journalctl -u containerd",40,195,520,80,SYS)
 d.box("systemd — 두 서비스를 켜고 끈다\nsystemctl status kubelet containerd",40,300,520,60,GRAY)
 d.group("축출 기준(실습 노드 설정)",40,380,520,180,NOTE)
-d.box("메모리   memory.available < 100Mi  → MemoryPressure\n디스크   nodefs.available < 10%     → DiskPressure\nPID      pid.available < 25%         → PIDPressure\n(실습 노드는 프로세스 한도 pid_max=8192)",55,415,490,120,"fillColor=#FFFFFF;strokeColor=#D6B656;align=left;spacingLeft=10;fontFamily=Courier New;")
+d.box("메모리   memory.available < 500Mi  → MemoryPressure\n디스크   nodefs.available < 10%     → DiskPressure\nPID      pid.available < 25%         → PIDPressure\n(실습 노드는 프로세스 한도 pid_max=8192)",55,415,490,120,"fillColor=#FFFFFF;strokeColor=#D6B656;align=left;spacingLeft=10;fontFamily=Courier New;")
 d.edge(kl,nc,"Lease 갱신","exitX=1;exitY=0.3;entryX=0;entryY=0.5;")
 d.edge(kl,st,"조건 보고","exitX=1;exitY=0.8;entryX=0;entryY=0.5;")
 d.edge(kl,cr,"컨테이너 띄워라","exitX=0.5;exitY=1;entryX=0.5;entryY=0;")
