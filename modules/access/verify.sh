@@ -39,7 +39,7 @@ verify_main() {
     [ "$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=$x --field-selector=status.phase=Running -o jsonpath='{.items[*].status.containerStatuses[0].ready}' 2>/dev/null | grep -cw true)" -ge 1 ] \
       && ok "$x Ready" || ng "$x 가 Ready 가 아님"
   done
-  local vb; vb=$(kubectl -n vault get pods -o json | jq -r '.items[] | select(.metadata.deletionTimestamp==null) | select(.status.phase!="Succeeded" and .status.phase!="Failed") |
+  local vb; vb=$(kubectl -n vault get pods -o json | jq -r '.items[] | select(.metadata.deletionTimestamp==null) | select(.status.phase!="Succeeded" and .status.phase!="Failed") | select((.metadata.ownerReferences[0].kind // "")!="Job") |
         select(.status.phase!="Running" or ([.status.containerStatuses[]?|.ready]|all|not)) | "\(.metadata.name) \(.status.phase)"')
   [ -z "$vb" ] && ok "vault 네임스페이스 파드 모두 Running·Ready (vault-0·injector)" || { ng "vault 네임스페이스에 Ready 가 아닌 파드:"; sed 's/^/         /' <<<"$vb"; }
   local sc; sc=$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=opslab-app -o json | jq -r '[.items[] | select(.metadata.deletionTimestamp==null)] | "\(map(select([.spec.containers[].name]|index("vault-agent"))) | length) \(length)"')
