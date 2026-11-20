@@ -42,7 +42,7 @@ grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY" | while IFS='|' read -r lab fault vars l
       sleep "$DEEP"; bash "$ROOT/modules/$MOD/faults/$fault/verify.sh" >>"$LOG" 2>&1 && d=" 증상=없음!" || d=" 증상=있음"; fi
     b=$(echo y | bash "$ROOT/common/inject.sh" rollback "$lab" 2>&1 | grep -c '✅ 원복')
     if [ -n "${DEEP:-}" ] && [ "$b" -ge 1 ]; then          # 원복 후 verify 가 통과하는지
-      sleep "$DEEP"; bash "$ROOT/modules/$MOD/faults/$fault/verify.sh" >>"$LOG" 2>&1 && d="$d 원복판정=통과" || d="$d 원복판정=실패!"; fi
+      sleep "$DEEP"; bash "$ROOT/modules/$MOD/faults/$fault/verify.sh" >/tmp/rv.out 2>&1 && d="$d 원복판정=통과" || { d="$d 원복판정=실패!"; grep -F '[FAIL]' /tmp/rv.out | sed 's/^/     /'; }; cat /tmp/rv.out >>"$LOG"; fi
     if [ -n "${RETRY:-}" ] && [ "$b" -ge 1 ]; then         # 재도전 → 해결 → 기록 → 검토
       W=~/opslab-work/$MOD; mkdir -p "$W"
       printf '# 가설: %s\n- 작성 시각: 시험\n- 파드 상태가 바뀔 것이다\n- 재시작이 늘 것이다\n- 응답이 실패할 것이다\n- describe·logs --previous·events 순으로 본다\n' "$lab" > "$W/hypothesis-$lab.md"
