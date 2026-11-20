@@ -9,11 +9,11 @@ checks:
     run: kubectl -n vault exec vault-0 -c vault -- env VAULT_TOKEN="$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)" vault read -format=json auth/kubernetes/config | jq -e '.data.token_reviewer_jwt_set != true'
     fix: vault write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc:443 (token_reviewer_jwt 를 넣지 않으면 Vault 가 자기 토큰을 자동으로 새로 읽는다)
     ref: 해답 — 변형 ① 조치
-  - name: 앱 서비스 계정의 토큰 자동 마운트가 꺼져 있지 않다
-    run: test "$(kubectl -n app get sa opslab-app -o jsonpath='{.automountServiceAccountToken}')" != false
-    fix: kubectl -n app patch sa opslab-app --type json -p '[{"op":"remove","path":"/automountServiceAccountToken"}]'
+  - name: Auth 역할의 audience 가 파드 토큰의 대상과 어긋나지 않는다(비어 있음)
+    run: kubectl -n vault exec vault-0 -c vault -- env VAULT_TOKEN="$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)" vault read -format=json auth/kubernetes/role/opslab-app | jq -e '(.data.audience // "") == ""'
+    fix: v write auth/kubernetes/role/opslab-app … audience="" (쓰려면 파드 토큰의 aud 를 먼저 확인하고 같은 값을 넣으세요)
     ref: 해답 — 변형 ② 조치
-  - name: 런북에 토큰의 종류(옛 방식 Secret 토큰 / 짧은 수명 토큰)와 유효 기간 확인이 있다
-    run: grep -qiE '토큰|token' ~/opslab-work/access/runbook-access-5.md && grep -qiE '만료|유효|수명|expir|Secret' ~/opslab-work/access/runbook-access-5.md
-    fix: 런북에 "토큰이 어디서 오는지(projected·Secret), 유효 기간, 자동 갱신 여부 확인" 을 적으세요
+  - name: 런북에 토큰의 종류(옛 방식 Secret 토큰 / 짧은 수명 토큰)·유효 기간·대상(aud) 확인이 있다
+    run: grep -qiE '토큰|token' ~/opslab-work/access/runbook-access-5.md && grep -qiE '만료|유효|수명|expir|Secret|aud' ~/opslab-work/access/runbook-access-5.md
+    fix: 런북에 "토큰이 어디서 오는지(projected·Secret), 유효 기간, 대상(aud) 확인" 을 적으세요
     ref: 해답 — 런북 예시

@@ -16,4 +16,4 @@ labs:
   - access-2 | vault-auth | 3 | 필수 | 새 파드가 Vault 에 로그인하지 못하는 장애(Kubernetes Auth)
   - access-3 | inject | 3 | 필수 | 새 파드에 비밀이 들어오지 않는 장애(시크릿 주입)
   - access-4 | rbac | 3 | 필수 | 개발자가 클러스터에서 작업하지 못하는 장애(RBAC)
-  - access-5 | token | 2 | 심화 | 일정 시간이 지나면 인증이 실패하는 장애(토큰 만료)
+  - access-5 | token | 2 | 심화 | 서비스 계정 토큰 때문에 금고 로그인이 실패하는 장애

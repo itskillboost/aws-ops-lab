@@ -66,7 +66,7 @@ HCL
   vt auth list -format=json | jq -e '."kubernetes/"' >/dev/null || vt auth enable kubernetes >/dev/null || return 1
   vt write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc:443 >/dev/null || return 1
   vt write auth/kubernetes/role/opslab-app bound_service_account_names=opslab-app bound_service_account_namespaces="$APP_NS" \
-    policies=opslab-app ttl=1h >/dev/null || return 1
+    policies=opslab-app ttl=1h audience="" >/dev/null 2>&1 || return 1   # audience 비움: 쓰기는 덮어쓰기가 아니라 고친 항목만 바뀐다
 }
 
 app_to_vault() {  # 샘플 앱: DB 비밀번호는 Vault Agent 가 /etc/app/db-cred.env 로, AWS 신원은 IRSA 로
