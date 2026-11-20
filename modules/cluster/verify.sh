@@ -1,5 +1,5 @@
 #!/bin/bash
-# cluster 모듈 정상 상태 판정 공통 (workload 판정에 노드 상태 조건을 더하고, 앱 재시작 횟수는 보지 않는다) — baseline/verify.sh 와 faults/*/verify.sh 가 source 한다.
+# cluster 모듈 정상 상태 판정 공통 (workload 판정에 노드 상태 조건을 더하고, 앱 재시작 횟수와 이미 끝난(축출된) 파드 기록은 보지 않는다) — baseline/verify.sh 와 faults/*/verify.sh 가 source 한다.
 #   verify_main "<제목>"  → PASS/FAIL 을 출력하고 종료 코드(0=정상)로 끝낸다
 set -uo pipefail
 : "${SID:?SID 환경변수에 학번을 넣으세요. 예) source ~/opslab-env.sh}"
@@ -34,7 +34,7 @@ verify_main() {
 
   echo "[3] 파드 ($NS 네임스페이스)"
   local bad
-  bad=$(kubectl -n "$NS" get pods -o json | jq -r '.items[] | select(.metadata.deletionTimestamp==null) |
+  bad=$(kubectl -n "$NS" get pods -o json | jq -r '.items[] | select(.metadata.deletionTimestamp==null) | select(.status.phase!="Succeeded" and .status.phase!="Failed") |
         select(.status.phase!="Running" or ([.status.containerStatuses[]?|.ready]|all|not)) |
         "\(.metadata.name) \(.status.phase) \([.status.initContainerStatuses[]?,.status.containerStatuses[]? | .state | keys[0] + ":" + ((.waiting.reason // .terminated.reason // "") )] | join(","))"')
   [ -z "$bad" ] && ok "모든 파드 Running·Ready (Pending 0개)" || { ng "Running·Ready 가 아닌 파드:"; sed 's/^/         /' <<<"$bad"; }
