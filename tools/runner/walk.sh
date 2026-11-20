@@ -11,7 +11,7 @@ step() { N=$((N+1)); echo; echo "▶▶ [$N] $1"; eval "$1"; local rc=$?; echo "
 buf=""
 while IFS= read -r line || [ -n "$line" ]; do
   [[ -z "$buf" && ( "$line" =~ ^[[:space:]]*# || -z "${line// }" ) ]] && continue
-  if [[ "$line" == *\\ ]]; then buf+="${line%\\}"$'\n'; continue; fi
+  if [[ "$line" == *\\ ]]; then buf+="${line%\\} "; continue; fi   # 줄 끝 \ 은 공백으로 이어 붙인다(셸과 같게)
   cmd="$buf$line"; buf=""
   cmd=${cmd//common\/headlamp.sh/common\/headlamp.sh $MYIP}; cmd=${cmd//| less/| head -20}
   [[ "$cmd" == *headlamp.sh* ]] && cmd+=" | grep -v '^eyJ'"   # 로그에 토큰을 남기지 않는다
