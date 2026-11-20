@@ -6,7 +6,7 @@ checks:
     fix: kubectl -n kube-system scale deploy coredns --replicas=2 — 그리고 kubectl -n kube-system logs deploy/coredns 로 오류가 없는지 보세요
     ref: 해답 — 변형 ①② 조치
   - name: 파드 안에서 서비스 이름이 IP 로 풀린다(nslookup postgres.app.svc)
-    run: kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import socket;socket.gethostbyname('postgres.app.svc.cluster.local')"
+    run: for i in 1 2 3 4 5 6; do kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import socket;socket.gethostbyname('postgres.app.svc.cluster.local')" 2>/dev/null && exit 0; sleep 10; done; exit 1
     fix: CoreDNS 상태와, app 네임스페이스에서 UDP/TCP 53 을 막는 NetworkPolicy 가 없는지 확인하세요
     ref: 해답 — 공통 확인
   - name: app 네임스페이스의 Egress 정책이 DNS(53)를 막지 않는다
