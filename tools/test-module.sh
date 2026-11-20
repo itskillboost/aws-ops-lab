@@ -26,7 +26,7 @@ if [ -z "${SKIP_START:-}" ]; then   # SKIP_START=1: 이미 구축한 환경(예:
   say "-- 앱 기동 대기 3분"; sleep 180
 fi
 # EKS 모듈: 부하 파드를 켠다(ALB 가 없는 날의 부하 도구)
-grep -qE '^requires: *K' "$MY" && { bash "$ROOT/common/load.sh" pod >>"$LOG" 2>&1; sleep 75; }
+grep -qE "^requires: *K" "$MY" && { LT=""; kubectl -n app get ingress opslab-app >/dev/null 2>&1 && LT=alb; bash "$ROOT/common/load.sh" pod $LT >>"$LOG" 2>&1; sleep 75; }   # Ingress 가 있으면 ALB 로
 
 n=$(bash "$ROOT/modules/$MOD/baseline/verify.sh" 2>&1 | tee -a "$LOG" | judge)
 say "baseline verify: FAIL ${n} (요청 수 제외)"; [ "$n" -eq 0 ] || FAILS=$((FAILS+1))
