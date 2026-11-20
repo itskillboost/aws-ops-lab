@@ -138,6 +138,31 @@ eks_unstacked() {  # 스택 밖에서 만든 클러스터(cluster 모듈 직접 
   done
 }
 
+eks_sg() {  # 스택 밖에서 CLI 로 만든 보안 그룹(태그 Owner=<학번>, 예: podnet-6 의 DB 파드 보안 그룹) — 연결된 ENI 가 풀릴 때까지 최대 3분 재시도
+  local g e
+  for e in $(aws ec2 describe-network-interfaces --filters Name=tag:Owner,Values="$SID" Name=status,Values=available --query 'NetworkInterfaces[].NetworkInterfaceId' --output text); do
+    aws ec2 delete-network-interface --network-interface-id "$e" && echo "  ENI 삭제: $e"; done
+  for g in $(aws ec2 describe-security-groups --filters Name=tag:Owner,Values="$SID" Name=tag:Course,Values=opslab --query "SecurityGroups[?GroupName!='default' && !(Tags[?Key=='aws:cloudformation:stack-name'])].GroupId" --output text); do
+    for i in $(seq 1 18); do aws ec2 delete-security-group --group-id "$g" 2>/dev/null && { echo "  보안 그룹 삭제: $g"; break; }; sleep 10; done
+  done
+}
+
+eks_iam() {  # 스택 밖에서 CLI 로 만든 IAM 역할·정책(IRSA 역할 등, 태그 Owner=<학번>) — 로드밸런서를 회수한 뒤에 지운다
+  local r p
+  for r in $(aws iam list-roles --query "Roles[?starts_with(RoleName,'$SID-')].RoleName" --output text); do
+    aws iam list-role-tags --role-name "$r" --query 'Tags[].Key' --output text | grep -q 'aws:cloudformation' && continue
+    [ "$(aws iam list-role-tags --role-name "$r" --query "Tags[?Key=='Owner'].Value" --output text)" = "$SID" ] || continue
+    for p in $(aws iam list-attached-role-policies --role-name "$r" --query 'AttachedPolicies[].PolicyArn' --output text); do aws iam detach-role-policy --role-name "$r" --policy-arn "$p"; done
+    for p in $(aws iam list-role-policies --role-name "$r" --query 'PolicyNames[]' --output text); do aws iam delete-role-policy --role-name "$r" --policy-name "$p"; done
+    aws iam delete-role --role-name "$r" && echo "  IAM 역할 삭제: $r"
+  done
+  for p in $(aws iam list-policies --scope Local --query "Policies[?starts_with(PolicyName,'$SID-')].Arn" --output text); do
+    [ "$(aws iam list-policy-tags --policy-arn "$p" --query "Tags[?Key=='Owner'].Value" --output text)" = "$SID" ] || continue
+    for v in $(aws iam list-policy-versions --policy-arn "$p" --query 'Versions[?!IsDefaultVersion].VersionId' --output text); do aws iam delete-policy-version --policy-arn "$p" --version-id "$v"; done
+    aws iam delete-policy --policy-arn "$p" 2>/dev/null && echo "  IAM 정책 삭제: ${p##*/}"
+  done
+}
+
 delete_all() {
   read -r -p "L0 층을 뺀 $SID 의 실습 리소스를 모두 삭제합니다. 학번($SID)을 입력하세요: " ans; [ "$ans" = "$SID" ] || exit 1
   # 1) 모듈별 정리 훅: 수강생이 CLI로 직접 만든 리소스 (modules/*/cleanup.sh)
@@ -163,11 +188,14 @@ delete_all() {
   # 3) 스택 (L0 제외, 늦게 만든 것부터)
   for st in $(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE ROLLBACK_COMPLETE DELETE_FAILED \
                --query "reverse(sort_by(StackSummaries[?starts_with(StackName,'$SID-') && StackName!='$SID-l0'],&CreationTime))[].StackName" --output text); do
+    [ "$st" = "$SID-l1" ] && eks_sg     # VPC 를 지우기 전에 스택 밖에서 만든 보안 그룹(파드 보안 그룹 등)
     echo "  스택 삭제: $st"; aws cloudformation delete-stack --stack-name "$st"; aws cloudformation wait stack-delete-complete --stack-name "$st" || echo "  ⚠️ $st 삭제 실패 — 콘솔에서 이벤트 확인"
   done
   # 4) 스택 삭제가 남긴 Aurora 최종 스냅샷(이전 템플릿의 기본 삭제 정책) — 저장 비용이 나가므로 삭제
   for s in $(aws rds describe-db-cluster-snapshots --snapshot-type manual --query "DBClusterSnapshots[?starts_with(DBClusterSnapshotIdentifier,'$SID-l3-snapshot-')].DBClusterSnapshotIdentifier" --output text); do
     aws rds delete-db-cluster-snapshot --db-cluster-snapshot-identifier "$s" >/dev/null && echo "  최종 스냅샷 삭제: $s"; done
+  # 4-1) 스택 밖에서 CLI 로 만든 IAM 역할·정책(IRSA 등)
+  eks_iam
   # 5) EKS 과정: 시크릿·ECR·로그 그룹·잔존 검사
   eks_postdelete
   rm -f ~/.opslab/start/"$SID"-*     # start.sh 층 완료 표시

@@ -1,0 +1,53 @@
+# podnet 따라하기 페이지의 명령을 페이지 순서대로 — tools/runner/walk.sh 가 한 줄씩 실행한다
+# 사전 조건
+source ~/opslab-env.sh
+cd ~/opslab && git pull -q
+bash ~/opslab/common/start.sh podnet
+source ~/opslab-env.sh
+bash ~/opslab/common/check.sh podnet env
+bash ~/opslab/common/headlamp.sh
+source ~/opslab/common/eks.sh
+# 구축 1 IRSA 역할
+ACCT=$(aws sts get-caller-identity --query Account --output text); echo $ACCT
+ISSUER=$(aws eks describe-cluster --name $SID-cluster-eks --query cluster.identity.oidc.issuer --output text | sed 's#^https://##'); echo $ISSUER
+aws iam create-policy --policy-name $SID-podnet-lbc-policy \
+  --policy-document file://$HOME/opslab/modules/podnet/lbc-iam-policy.json \
+  --tags Key=Course,Value=opslab Key=Module,Value=podnet Key=Owner,Value=$SID --query Policy.Arn --output text
+sed -e "s/__ACCT__/$ACCT/g" -e "s#__ISSUER__#$ISSUER#g" ~/opslab/modules/podnet/lbc-trust.json > ~/lbc-trust.json; cat ~/lbc-trust.json
+aws iam create-role --role-name $SID-podnet-lbc-role --assume-role-policy-document file://$HOME/lbc-trust.json \
+  --permissions-boundary arn:aws:iam::$ACCT:policy/opslab-student-boundary \
+  --tags Key=Course,Value=opslab Key=Module,Value=podnet Key=Owner,Value=$SID --query Role.Arn --output text
+aws iam attach-role-policy --role-name $SID-podnet-lbc-role --policy-arn arn:aws:iam::$ACCT:policy/$SID-podnet-lbc-policy
+bash ~/opslab/common/check.sh podnet irsa
+# 구축 2 Load Balancer Controller
+VPC=$(aws eks describe-cluster --name $SID-cluster-eks --query cluster.resourcesVpcConfig.vpcId --output text); echo $VPC
+helm upgrade --install aws-load-balancer-controller ~/opslab/vendor/charts/aws-load-balancer-controller -n kube-system --wait \
+  --set clusterName=$SID-cluster-eks --set region=ap-northeast-2 --set vpcId=$VPC \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::$ACCT:role/$SID-podnet-lbc-role \
+  --set image.repository=$(img_repo lbc) --set image.tag=$(img_tag lbc) \
+  --set enableServiceMutatorWebhook=false \
+  --set defaultTags.Course=opslab --set defaultTags.Module=podnet --set defaultTags.Owner=$SID
+kubectl -n kube-system get deploy aws-load-balancer-controller
+bash ~/opslab/common/check.sh podnet lbc
+# 구축 3 Ingress(ALB)
+sed "s/__SID__/$SID/g" ~/opslab/layers/k3-ingress/ingress.yaml | kubectl apply -f -
+until kubectl -n app get ingress opslab-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' | grep -q elb; do echo "  ALB 만드는 중…"; sleep 15; done
+ALB=$(kubectl -n app get ingress opslab-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'); echo $ALB
+until [ "$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://$ALB/health)" = 200 ]; do echo "  ALB 준비 중…"; sleep 15; done; curl -s http://$ALB/api; echo
+bash ~/opslab/common/check.sh podnet ingress
+# 구축 4 VPC CNI 네트워크 정책 + 기본 NetworkPolicy
+UPD=$(aws eks update-addon --cluster-name $SID-cluster-eks --addon-name vpc-cni --resolve-conflicts OVERWRITE \
+  --configuration-values '{"enableNetworkPolicy":"true"}' --query update.id --output text); echo $UPD
+until [ "$(aws eks describe-update --name $SID-cluster-eks --addon-name vpc-cni --update-id $UPD --query update.status --output text)" = Successful ]; do echo "  변경 중…"; sleep 15; done; echo "  네트워크 정책 기능 켜기 완료"
+kubectl -n kube-system rollout status ds/aws-node
+kubectl apply -f ~/opslab/layers/k3-ingress/netpol.yaml
+kubectl -n app run nptest --rm -i --restart=Never --image=$(img busybox) -- nc -zv -w 3 postgres 5432 || echo "  → 막혔습니다(정상: 앱 파드가 아니므로)"
+kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import socket;socket.create_connection(('postgres',5432),3);print('앱 → DB 연결 OK')"
+bash ~/opslab/common/check.sh podnet netpol
+# 2단계 정상 상태 정의
+bash ~/opslab/common/load.sh pod alb
+sleep 70; bash ~/opslab/common/load.sh pod log
+bash ~/opslab/modules/podnet/baseline/verify.sh
+aws ec2 describe-subnets --filters Name=tag:Owner,Values=$SID --query 'Subnets[].[Tags[?Key==`Name`]|[0].Value,AvailableIpAddressCount]' --output table
+bash ~/opslab/common/check.sh podnet all

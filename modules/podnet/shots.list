@@ -1,0 +1,8 @@
+# podnet 따라하기 페이지의 Headlamp 화면 (파일이름 | Headlamp 경로)
+pn-01-login | LOGIN
+pn-02-ingress | /c/main/ingresses?namespace=app
+pn-03-ingress-full | /c/main/ingresses/app/opslab-app
+pn-04-services | /c/main/services?namespace=app
+pn-05-endpoints | /c/main/endpoints?namespace=app
+pn-06-netpol-full | /c/main/networkpolicies/app/db-allow-app
+pn-07-pods-kube-system | /c/main/pods?namespace=kube-system

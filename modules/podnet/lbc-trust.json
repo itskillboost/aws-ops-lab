@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": { "Federated": "arn:aws:iam::__ACCT__:oidc-provider/__ISSUER__" },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "__ISSUER__:sub": "system:serviceaccount:kube-system:aws-load-balancer-controller",
+          "__ISSUER__:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

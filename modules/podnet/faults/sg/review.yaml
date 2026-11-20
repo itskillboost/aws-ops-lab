@@ -1,0 +1,17 @@
+# podnet-6 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: podnet-6
+checks:
+  - name: 클러스터 보안 그룹에 자기 참조 규칙(노드·파드끼리 통신)이 있다
+    run: |
+      CSG=$(aws eks describe-cluster --name $SID-cluster-eks --query cluster.resourcesVpcConfig.clusterSecurityGroupId --output text)
+      test "$(aws ec2 describe-security-group-rules --filters Name=group-id,Values=$CSG --query "length(SecurityGroupRules[?!IsEgress && ReferencedGroupInfo.GroupId=='$CSG'])" --output text)" -ge 1
+    fix: 클러스터 보안 그룹에 "같은 보안 그룹에서 오는 모든 트래픽 허용" 규칙을 다시 넣으세요
+    ref: 해답 — 변형 ② 조치
+  - name: 앱 파드가 DB(postgres:5432)에 접속된다
+    run: kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import socket;socket.create_connection(('postgres',5432),3)"
+    fix: DB 파드에 붙은 보안 그룹(kubectl -n app get securitygrouppolicy, 파드 어노테이션 vpc.amazonaws.com/pod-eni)의 인바운드 규칙에 앱에서 오는 5432 를 허용하세요
+    ref: 해답 — 변형 ① 조치
+  - name: 런북에 보안 그룹 변경 전 영향 확인·변경 기록(CloudTrail) 확인 절차가 있다
+    run: grep -qiE 'CloudTrail|보안 그룹|security group' ~/opslab-work/podnet/runbook-podnet-6.md
+    fix: 런북에 "CloudTrail 에서 RevokeSecurityGroupIngress·AuthorizeSecurityGroupIngress 확인" 을 적으세요
+    ref: 해답 — 재발 방지

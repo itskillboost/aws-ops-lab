@@ -1,0 +1,19 @@
+# 기본 NetworkPolicy(출입문 규칙) — DB(PostgreSQL·Redis)에는 샘플 앱 파드만 들어올 수 있다.
+# podnet 모듈 구축 3과 K3 층이 같은 파일을 쓴다. VPC CNI 의 네트워크 정책 기능을 켜야 실제로 적용된다.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-app
+  namespace: app
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app.kubernetes.io/name, operator: In, values: [postgres, redis] }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: opslab-app }
+      ports:
+        - { protocol: TCP, port: 5432 }
+        - { protocol: TCP, port: 6379 }

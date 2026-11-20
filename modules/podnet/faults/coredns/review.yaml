@@ -1,0 +1,22 @@
+# podnet-4 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: podnet-4
+checks:
+  - name: CoreDNS 가 2개 이상 Ready 다
+    run: test "$(kubectl -n kube-system get deploy coredns -o jsonpath='{.status.readyReplicas}')" -ge 2
+    fix: kubectl -n kube-system scale deploy coredns --replicas=2 — 그리고 kubectl -n kube-system logs deploy/coredns 로 오류가 없는지 보세요
+    ref: 해답 — 변형 ①② 조치
+  - name: 파드 안에서 서비스 이름이 IP 로 풀린다(nslookup postgres.app.svc)
+    run: kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import socket;socket.gethostbyname('postgres.app.svc.cluster.local')"
+    fix: CoreDNS 상태와, app 네임스페이스에서 UDP/TCP 53 을 막는 NetworkPolicy 가 없는지 확인하세요
+    ref: 해답 — 공통 확인
+  - name: app 네임스페이스의 Egress 정책이 DNS(53)를 막지 않는다
+    run: |
+      for p in $(kubectl -n app get networkpolicy -o json | jq -r '.items[] | select(.spec.policyTypes|index("Egress")) | .metadata.name'); do
+        kubectl -n app get networkpolicy "$p" -o json | jq -e '[.spec.egress[]?.ports[]?.port] | index(53)' >/dev/null || exit 1
+      done
+    fix: Egress 정책에 UDP·TCP 53(kube-system 의 CoreDNS)을 허용하는 규칙을 넣거나, 잘못 만든 정책을 지우세요
+    ref: 해답 — 변형 ③ 조치
+  - name: 런북의 확인 순서에 파드 안에서 이름 풀기를 직접 시험하는 단계가 있다
+    run: grep -qiE 'nslookup|dig|getent|gethostbyname|이름 풀|resolv' ~/opslab-work/podnet/runbook-podnet-4.md
+    fix: 런북 2. 확인 순서에 "kubectl exec … nslookup postgres.app.svc.cluster.local" 같은 이름 풀기 시험을 적으세요
+    ref: 해답 — 근거가 된 출력

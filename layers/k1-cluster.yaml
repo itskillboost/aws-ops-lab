@@ -44,7 +44,7 @@ Resources:
           - Effect: Allow
             Principal: { Service: eks.amazonaws.com }
             Action: [sts:AssumeRole, sts:TagSession]
-      ManagedPolicyArns: [arn:aws:iam::aws:policy/AmazonEKSClusterPolicy]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/AmazonEKSClusterPolicy, arn:aws:iam::aws:policy/AmazonEKSVPCResourceController]   # VPCResourceController: 파드 보안 그룹(podnet-6)
 
   # 노드 역할: EBS CSI 드라이버와 Container Insights 에이전트도 이 역할(인스턴스 프로필)로 동작한다(실습 단순화).
   # 앱 파드의 AWS 권한은 IRSA(access 모듈)로 따로 준다.
