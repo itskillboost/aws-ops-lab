@@ -12,7 +12,7 @@ checks:
         o=$(on_node "$n" "systemctl is-active kubelet containerd; systemctl is-enabled kubelet containerd") || exit 1
         [ "$(grep -c -E '^(active|enabled)$' <<<"$o")" -eq 4 ] || exit 1
       done
-    fix: 노드에서 sudo systemctl enable --now kubelet containerd (mask 되어 있으면 sudo systemctl unmask --runtime containerd 먼저)
+    fix: 노드에서 sudo systemctl enable --now kubelet containerd
     ref: 해답 — 변형 ①② 조치
   - name: 런북의 확인 순서에 노드 안에서 서비스 상태·로그를 보는 단계(systemctl·journalctl)가 있다
     run: grep -qE 'journalctl|systemctl' ~/opslab-work/cluster/runbook-cluster-1.md
