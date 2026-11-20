@@ -1,0 +1,19 @@
+# podnet-2 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: podnet-2
+checks:
+  - name: Service 의 Endpoints 에 파드 2개 이상이 들어 있다
+    run: test "$(kubectl -n app get endpoints opslab-app -o jsonpath='{.subsets[*].addresses[*].ip}' | wc -w)" -ge 2
+    fix: kubectl -n app get svc opslab-app -o yaml 의 selector 를 파드 라벨(kubectl -n app get pods --show-labels)과 맞추세요
+    ref: 해답 — 변형 ① 조치
+  - name: Service 의 targetPort 가 파드가 듣는 포트(이름 http = 8080)와 같다
+    run: "kubectl -n app get svc opslab-app -o jsonpath='{.spec.ports[0].targetPort}' | grep -qxE 'http|8080'"
+    fix: kubectl -n app patch svc opslab-app --type json -p '[{"op":"replace","path":"/spec/ports/0/targetPort","value":"http"}]'
+    ref: 해답 — 변형 ② 조치
+  - name: Ingress 의 백엔드가 실제로 있는 Service(opslab-app:80)를 가리킨다
+    run: "test \"$(kubectl -n app get ingress opslab-app -o jsonpath='{.spec.rules[0].http.paths[0].backend.service.name}:{.spec.rules[0].http.paths[0].backend.service.port.number}')\" = opslab-app:80"
+    fix: Ingress 의 backend.service.name 과 port 를 kubectl -n app get svc 결과와 맞추세요
+    ref: 해답 — 변형 ③ 조치
+  - name: 런북의 확인 순서에 Ingress → Service → Endpoints → 파드 순으로 연결을 따라가는 단계가 있다
+    run: grep -qiE 'endpoints|엔드포인트' ~/opslab-work/podnet/runbook-podnet-2.md
+    fix: 런북 2. 확인 순서에 "kubectl get ingress → describe ingress → get svc,endpoints → get pods --show-labels" 를 적으세요
+    ref: 해답 — 근거가 된 출력

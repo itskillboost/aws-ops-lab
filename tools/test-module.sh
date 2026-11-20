@@ -26,7 +26,7 @@ if [ -z "${SKIP_START:-}" ]; then   # SKIP_START=1: 이미 구축한 환경(예:
   say "-- 앱 기동 대기 3분"; sleep 180
 fi
 # EKS 모듈: 부하 파드를 켠다(ALB 가 없는 날의 부하 도구)
-grep -qE '^requires: *K' "$MY" && { bash "$ROOT/common/load.sh" pod >>"$LOG" 2>&1; sleep 75; }
+grep -qE "^requires: *K" "$MY" && { LT=""; kubectl -n app get ingress opslab-app >/dev/null 2>&1 && LT=alb; bash "$ROOT/common/load.sh" pod $LT >>"$LOG" 2>&1; sleep 75; }   # Ingress 가 있으면 ALB 로
 
 n=$(bash "$ROOT/modules/$MOD/baseline/verify.sh" 2>&1 | tee -a "$LOG" | judge)
 say "baseline verify: FAIL ${n} (요청 수 제외)"; [ "$n" -eq 0 ] || FAILS=$((FAILS+1))
@@ -42,15 +42,17 @@ grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY" | while IFS='|' read -r lab fault vars l
       sleep "$DEEP"; bash "$ROOT/modules/$MOD/faults/$fault/verify.sh" >>"$LOG" 2>&1 && d=" 증상=없음!" || d=" 증상=있음"; fi
     b=$(echo y | bash "$ROOT/common/inject.sh" rollback "$lab" 2>&1 | grep -c '✅ 원복')
     if [ -n "${DEEP:-}" ] && [ "$b" -ge 1 ]; then          # 원복 후 verify 가 통과하는지
-      sleep "$DEEP"; bash "$ROOT/modules/$MOD/faults/$fault/verify.sh" >>"$LOG" 2>&1 && d="$d 원복판정=통과" || d="$d 원복판정=실패!"; fi
+      sleep "$DEEP"; bash "$ROOT/modules/$MOD/faults/$fault/verify.sh" >/tmp/rv.out 2>&1 && d="$d 원복판정=통과" || { d="$d 원복판정=실패!"; grep -F '[FAIL]' /tmp/rv.out | sed 's/^/     /'; }; cat /tmp/rv.out >>"$LOG"; fi
     if [ -n "${RETRY:-}" ] && [ "$b" -ge 1 ]; then         # 재도전 → 해결 → 기록 → 검토
       W=~/opslab-work/$MOD; mkdir -p "$W"
       printf '# 가설: %s\n- 작성 시각: 시험\n- 파드 상태가 바뀔 것이다\n- 재시작이 늘 것이다\n- 응답이 실패할 것이다\n- describe·logs --previous·events 순으로 본다\n' "$lab" > "$W/hypothesis-$lab.md"
       printf '# 런북\n## 1. 증상\n시험 증상\n## 2. 확인 순서\nkubectl describe pod, kubectl logs --previous, events, kubectl get events --sort-by=.lastTimestamp, describe node, systemctl status kubelet, journalctl -u kubelet, Logs Insights authenticator audit\n## 3. 원인\n시험 원인 requests nodeSelector taint\n## 4. 조치\n시험 조치\n## 5. 재발 방지\nstartup liveness readiness 역할 구분, 스케줄 확인, 노드 알람 모니터링\n' > "$W/runbook-$lab.md"
+      grep -E '^ *fix:' "$ROOT/modules/$MOD/faults/$fault/review.yaml" | sed 's/^ *fix: *//' >> "$W/runbook-$lab.md"   # 모듈마다 런북 검토 낱말이 다르므로 review.yaml 의 안내문을 덧붙인다
       t=$(bash "$ROOT/common/inject.sh" retry "$lab" </dev/null 2>&1 | grep -c '✅'); sleep "${DEEP:-30}"
       LAB=$lab bash "$ROOT/modules/$MOD/faults/$fault/rollback.sh" >>"$LOG" 2>&1; sleep 80   # 해답 조치 대용
       bash "$ROOT/common/inject.sh" done "$lab" </dev/null >>"$LOG" 2>&1
-      x=$(bash "$ROOT/common/review.sh" "$lab" 2>&1 | tee -a "$LOG" | grep -c '❌')
+      bash "$ROOT/common/review.sh" "$lab" > /tmp/rw.out 2>&1; cat /tmp/rw.out >> "$LOG"
+      x=$(grep -c '❌' /tmp/rw.out); [ "$x" -gt 0 ] && grep -F '❌' /tmp/rw.out | sed 's/^/     /'   # 실패 항목을 화면에도
       d="$d 재도전=$t 검토❌=$x"; [ "$t" -ge 1 ] && [ "$x" -eq 0 ] || d="$d!"
     fi
     [ "$r" -ge 1 ] && [ "$b" -ge 1 ] && [[ "$d" != *"!"* ]] && res=OK || { res=XX; echo FAIL >> "$LOG.fail"; }

@@ -25,6 +25,7 @@ images:
   redis: library/redis:7.4-alpine
   busybox: library/busybox:1.37
   headlamp: ghcr.io/headlamp-k8s/headlamp:v0.46.0
+  lbc: public.ecr.aws/eks/aws-load-balancer-controller:v3.6.3   # AWS Load Balancer Controller (vendor/charts 3.6.3)
 gitops_base_tag: eks-v1
 days:
   1: workload

@@ -14,6 +14,7 @@
 #
 # EKS 과정, ALB 가 없는 날(workload·cluster) — CloudShell에서 클러스터 안에 부하 파드를 띄운다
 #   bash ~/opslab/common/load.sh pod          부하 파드 시작(초당 10건, 샘플 앱 Service 로)
+#   bash ~/opslab/common/load.sh pod alb      부하 파드 시작(초당 10건, Ingress 가 만든 ALB 주소로 — podnet 이후)
 #   bash ~/opslab/common/load.sh pod log      최근 요약 보기 (10초마다 한 줄)
 #   bash ~/opslab/common/load.sh pod stop     부하 파드 중지
 set -euo pipefail
@@ -23,6 +24,12 @@ if [ "${1:-}" = pod ]; then
     stop) kubectl -n "$APP_NS" delete deployment opslab-load --ignore-not-found; exit 0 ;;
     log)  kubectl -n "$APP_NS" logs deploy/opslab-load --tail="${3:-12}"; exit 0 ;;
   esac
+  TARGET="http://opslab-app.$APP_NS.svc"     # 기본: 샘플 앱 Service(대표 전화번호)로
+  if [ "${2:-}" = alb ]; then                # alb: 사용자처럼 인터넷 쪽 ALB 주소로 (Ingress 가 있는 날)
+    h=$(kubectl -n "$APP_NS" get ingress opslab-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+    [ -n "$h" ] || { echo "❌ Ingress(ALB) 주소가 없습니다 — kubectl -n $APP_NS get ingress"; exit 1; }
+    TARGET="http://$h"
+  fi
   kubectl apply -f - <<YAML
 apiVersion: apps/v1
 kind: Deployment
@@ -40,7 +47,7 @@ spec:
         - name: load
           image: $(img app)
           resources: { requests: { cpu: 20m, memory: 32Mi }, limits: { memory: 64Mi } }
-          env: [{ name: TARGET, value: "http://opslab-app.$APP_NS.svc" }, { name: RPS, value: "10" }]
+          env: [{ name: TARGET, value: "$TARGET" }, { name: RPS, value: "10" }]
           command: ["python3", "-u", "-c"]
           args:
             - |

@@ -1,0 +1,20 @@
+# podnet-1 재발 방지로 확인할 항목 — common/review.sh 가 읽는다. run 이 0으로 끝나면 충족.
+lab: podnet-1
+checks:
+  - name: IP 를 받지 못해 멈춘 파드(ContainerCreating)가 없다
+    run: test -z "$(kubectl get pods -A --no-headers | awk '$4=="ContainerCreating"')"
+    fix: kubectl describe pod <파드> 의 Events 에서 "failed to assign an IP address" 를 확인하고, 서브넷 IP·aws-node 설정을 정상으로 돌리세요
+    ref: 해답 — 공통 확인
+  - name: 앱 서브넷마다 남은 IP 가 50개 이상이다
+    run: |
+      for c in $(aws ec2 describe-subnets --filters Name=tag:Owner,Values=$SID "Name=tag:Name,Values=$SID-base-app-*" --query 'Subnets[].AvailableIpAddressCount' --output text); do [ "$c" -ge 50 ] || exit 1; done
+    fix: 쓰지 않는(available 상태) ENI 를 찾아 지우세요 — aws ec2 describe-network-interfaces --filters Name=status,Values=available
+    ref: 해답 — 변형 ① 조치
+  - name: aws-node(VPC CNI)에 ENI 수 제한(MAX_ENI)이 없다
+    run: "! kubectl -n kube-system get ds aws-node -o jsonpath='{.spec.template.spec.containers[0].env[*].name}' | grep -qw MAX_ENI"
+    fix: kubectl -n kube-system set env ds/aws-node MAX_ENI-
+    ref: 해답 — 변형 ② 조치
+  - name: 런북의 재발 방지에 서브넷 IP 감시나 IP 절약 방법(접두사 위임·서브넷 추가)이 있다
+    run: grep -qiE '남은 IP|AvailableIp|IP 감시|prefix|접두사|서브넷 추가|보조 CIDR|custom networking' ~/opslab-work/podnet/runbook-podnet-1.md
+    fix: 런북 5. 재발 방지에 "서브넷 남은 IP 알람" 또는 "접두사 위임(prefix delegation)·서브넷 추가" 를 적으세요
+    ref: 해답 — 재발 방지
