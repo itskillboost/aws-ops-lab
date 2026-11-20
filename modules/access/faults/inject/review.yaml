@@ -1,0 +1,23 @@
+# access-3 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: access-3
+checks:
+  - name: 앱 파드에 비밀 파일(/etc/app/db-cred.env)이 있고 DB 에 접속된다
+    run: kubectl -n app exec deploy/opslab-app -c app -- sh -c 'test -s /etc/app/db-cred.env' && test "$(curl -s -o /dev/null -m 8 -w '%{http_code}' "http://$(kubectl -n app get ingress opslab-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')/db")" = 200
+    fix: kubectl -n app logs <파드> -c vault-agent-init 로 어떤 경로를 읽으려다 실패했는지 보세요
+    ref: 해답 — 공통 확인
+  - name: 주입 어노테이션의 비밀 경로가 secret/data/opslab/db 이다
+    run: kubectl -n app get deploy opslab-app -o jsonpath='{.spec.template.metadata.annotations}' | grep -q 'secret/data/opslab/db"' && ! kubectl -n app get deploy opslab-app -o jsonpath='{.spec.template.metadata.annotations}' | grep -q 'opslab/dv'
+    fix: 어노테이션을 차트 기준으로 되돌리세요 — helm -n app upgrade opslab-app ~/opslab/charts/opslab-app --reset-then-reuse-values --force
+    ref: 해답 — 변형 ① 조치
+  - name: Vault 정책 opslab-app 이 secret/data/opslab/db 읽기를 허용한다
+    run: kubectl -n vault exec vault-0 -c vault -- env VAULT_TOKEN="$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)" vault policy read opslab-app | grep -q 'secret/data/opslab/db'
+    fix: vault policy write opslab-app 로 path "secret/data/opslab/db" { capabilities = ["read"] } 를 넣으세요
+    ref: 해답 — 변형 ② 조치
+  - name: Agent Injector 가 1개 이상 Ready 다
+    run: test "$(kubectl -n vault get deploy vault-agent-injector -o jsonpath='{.status.readyReplicas}')" -ge 1
+    fix: kubectl -n vault scale deploy vault-agent-injector --replicas=1 후 앱 파드를 다시 시작하세요
+    ref: 해답 — 변형 ③ 조치
+  - name: 런북의 재발 방지에 주입 확인(사이드카·비밀 파일) 점검이 있다
+    run: grep -qiE '사이드카|sidecar|injector|주입' ~/opslab-work/access/runbook-access-3.md
+    fix: 런북 5. 재발 방지에 "배포 후 사이드카·비밀 파일 존재 확인, Injector 복제본·PDB 유지" 를 적으세요
+    ref: 해답 — 런북 예시

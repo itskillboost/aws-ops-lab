@@ -13,8 +13,19 @@ spec:
   template:
     metadata:
       labels: {{- include "opslab-app.labels" . | nindent 8 }}
-      {{- with .Values.podAnnotations }}
-      annotations: {{- toYaml . | nindent 8 }}
+      {{- if or .Values.podAnnotations (eq .Values.db.source "vault") }}
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if eq .Values.db.source "vault" }}
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: {{ .Values.db.vault.role | quote }}
+        vault.hashicorp.com/agent-inject-secret-db-cred.env: {{ .Values.db.vault.path | quote }}
+        vault.hashicorp.com/agent-inject-template-db-cred.env: {{ .Values.db.vault.template | quote }}
+        vault.hashicorp.com/secret-volume-path-db-cred.env: /etc/app
+        vault.hashicorp.com/agent-pre-populate: "true"
+        {{- end }}
       {{- end }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}

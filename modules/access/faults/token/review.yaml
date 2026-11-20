@@ -1,0 +1,19 @@
+# access-5 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: access-5
+checks:
+  - name: 앱 파드가 모두 Ready 이고 Vault 에서 비밀을 받았다
+    run: test "$(kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready}{"\n"}{end}' | grep -c false)" -eq 0 && kubectl -n app exec deploy/opslab-app -c app -- sh -c 'test -s /etc/app/db-cred.env'
+    fix: kubectl -n app logs <파드> -c vault-agent-init 의 오류를 보세요
+    ref: 해답 — 공통 확인
+  - name: Vault 의 토큰 검토용 토큰을 따로 넣지 않았다(Vault 자신의 짧은 수명 토큰 사용)
+    run: kubectl -n vault exec vault-0 -c vault -- env VAULT_TOKEN="$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)" vault read -format=json auth/kubernetes/config | jq -e '.data.token_reviewer_jwt_set != true'
+    fix: vault write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc:443 (token_reviewer_jwt 를 넣지 않으면 Vault 가 자기 토큰을 자동으로 새로 읽는다)
+    ref: 해답 — 변형 ① 조치
+  - name: 앱 서비스 계정의 토큰 자동 마운트가 꺼져 있지 않다
+    run: test "$(kubectl -n app get sa opslab-app -o jsonpath='{.automountServiceAccountToken}')" != false
+    fix: kubectl -n app patch sa opslab-app --type json -p '[{"op":"remove","path":"/automountServiceAccountToken"}]'
+    ref: 해답 — 변형 ② 조치
+  - name: 런북에 토큰의 종류(옛 방식 Secret 토큰 / 짧은 수명 토큰)와 유효 기간 확인이 있다
+    run: grep -qiE '토큰|token' ~/opslab-work/access/runbook-access-5.md && grep -qiE '만료|유효|수명|expir|Secret' ~/opslab-work/access/runbook-access-5.md
+    fix: 런북에 "토큰이 어디서 오는지(projected·Secret), 유효 기간, 자동 갱신 여부 확인" 을 적으세요
+    ref: 해답 — 런북 예시

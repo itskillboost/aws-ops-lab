@@ -1,0 +1,23 @@
+# access-4 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: access-4
+checks:
+  - name: dev 역할로 app 네임스페이스의 파드를 조회할 수 있다
+    run: aws eks update-kubeconfig --name $SID-cluster-eks --role-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/$SID-access-dev-role --kubeconfig /tmp/kube-dev-review >/dev/null && kubectl --kubeconfig /tmp/kube-dev-review auth can-i list pods -n app | grep -qx yes
+    fix: kubectl auth can-i list pods -n app --as=x --as-group=opslab-dev 로 RBAC 만 따로 시험하고, 접근 항목의 그룹을 aws eks describe-access-entry 로 확인하세요
+    ref: 해답 — 공통 확인
+  - name: Role dev 에 파드 list 동사가 있다
+    run: kubectl -n app get role dev -o json | jq -e '[.rules[] | select(.resources|index("pods")) | .verbs[]] | index("list")' >/dev/null
+    fix: kubectl apply -f ~/opslab/layers/k4-access/rbac-dev.yaml
+    ref: 해답 — 변형 ① 조치
+  - name: RoleBinding dev 가 그룹 opslab-dev 를 가리킨다
+    run: kubectl -n app get rolebinding dev -o jsonpath='{.subjects[*].name}' | grep -qx opslab-dev
+    fix: kubectl apply -f ~/opslab/layers/k4-access/rbac-dev.yaml
+    ref: 해답 — 변형 ② 조치
+  - name: 접근 항목이 dev 역할을 그룹 opslab-dev 로 들여보낸다
+    run: aws eks describe-access-entry --cluster-name $SID-cluster-eks --principal-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/$SID-access-dev-role --query 'accessEntry.kubernetesGroups' --output text | grep -qw opslab-dev
+    fix: aws eks update-access-entry --cluster-name $SID-cluster-eks --principal-arn <dev 역할 ARN> --kubernetes-groups opslab-dev
+    ref: 해답 — 변형 ③ 조치
+  - name: 런북의 확인 순서에 can-i 와 접근 항목 확인이 있다
+    run: grep -qiE 'can-i' ~/opslab-work/access/runbook-access-4.md && grep -qiE 'access-entry|접근 항목' ~/opslab-work/access/runbook-access-4.md
+    fix: 런북 2. 확인 순서에 "kubectl auth can-i … --as-group → Role 동사 → RoleBinding 대상 → 접근 항목 그룹" 을 적으세요
+    ref: 해답 — 런북 예시
