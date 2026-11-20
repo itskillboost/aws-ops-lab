@@ -121,6 +121,23 @@ check() {  # 시간당 과금 리소스가 0개인지
   return $n
 }
 
+eks_unstacked() {  # 스택 밖에서 만든 클러스터(cluster 모듈 직접 구축): 노드 그룹 → 클러스터 → OIDC 공급자 (K1 스택 클러스터는 스택 삭제가 지운다)
+  source "$ROOT/common/eks.sh"
+  aws cloudformation describe-stacks --stack-name "$SID-k1" >/dev/null 2>&1 && return 0
+  aws eks describe-cluster --name "$CLUSTER" >/dev/null 2>&1 || return 0
+  local iss ng p
+  iss=$(aws eks describe-cluster --name "$CLUSTER" --query cluster.identity.oidc.issuer --output text 2>/dev/null)
+  for ng in $(aws eks list-nodegroups --cluster-name "$CLUSTER" --query 'nodegroups[]' --output text); do
+    echo "  노드 그룹 삭제: $ng"; aws eks delete-nodegroup --cluster-name "$CLUSTER" --nodegroup-name "$ng" >/dev/null
+  done
+  for ng in $(aws eks list-nodegroups --cluster-name "$CLUSTER" --query 'nodegroups[]' --output text); do
+    aws eks wait nodegroup-deleted --cluster-name "$CLUSTER" --nodegroup-name "$ng"; done
+  echo "  클러스터 삭제: $CLUSTER"; aws eks delete-cluster --name "$CLUSTER" >/dev/null && aws eks wait cluster-deleted --name "$CLUSTER"
+  for p in $(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text); do
+    [ -n "$iss" ] && [ "${p##*/}" = "${iss##*/}" ] && aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$p" && echo "  OIDC 공급자 삭제"
+  done
+}
+
 delete_all() {
   read -r -p "L0 층을 뺀 $SID 의 실습 리소스를 모두 삭제합니다. 학번($SID)을 입력하세요: " ans; [ "$ans" = "$SID" ] || exit 1
   # 1) 모듈별 정리 훅: 수강생이 CLI로 직접 만든 리소스 (modules/*/cleanup.sh)
@@ -141,6 +158,8 @@ delete_all() {
   [ -n "$AL" ] && aws cloudwatch delete-alarms --alarm-names $AL && echo "  알람 삭제: $AL"
   # 2-1) EKS: 클러스터를 지우기 전에 쿠버네티스가 만든 로드밸런서·볼륨을 회수
   eks_predelete
+  # 2-2) 수강생이 직접 만든 클러스터(스택 밖) — 네트워크·역할 스택보다 먼저 지운다
+  eks_unstacked
   # 3) 스택 (L0 제외, 늦게 만든 것부터)
   for st in $(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE ROLLBACK_COMPLETE DELETE_FAILED \
                --query "reverse(sort_by(StackSummaries[?starts_with(StackName,'$SID-') && StackName!='$SID-l0'],&CreationTime))[].StackName" --output text); do

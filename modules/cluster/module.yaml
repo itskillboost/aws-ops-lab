@@ -1,0 +1,17 @@
+id: cluster
+title: 클러스터 상태 진단
+hours: 8
+requires: L1        # 아침에 배포: L1 네트워크 + 모듈 주변 구성(env.yaml: 클러스터·노드 역할, 노드 시작 템플릿)
+builds: K1          # 직접 구축: 클러스터·노드 그룹·컨트롤 플레인 로그·Container Insights·kubeconfig = K1 층 (따라잡기 start.sh cluster full)
+topics:
+  - 노드 NotReady 원인 분기
+  - kubelet과 컨테이너 런타임 로그 해석
+  - 컨트롤 플레인 로그 확인 항목
+  - 이벤트 시계열 분석
+  - 노드 리소스 압박(disk, memory, PID) 판별
+  - Container Insights와 kubectl 병행 활용 (운영 Lab cluster-4 — 따라하기 페이지)
+# Lab ID | 장애 폴더 | 변형 수 | 구분 | 장애 유형(주입할 때 보여 줌)
+labs:
+  - cluster-1 | node-notready | 3 | 필수 | 노드 하나가 NotReady 로 바뀌는 장애
+  - cluster-2 | node-pressure | 3 | 필수 | 노드 자원이 부족해 파드가 쫓겨나는 장애
+  - cluster-3 | control-plane | 2 | 필수 | 컨트롤 플레인 로그에서 원인을 찾아야 하는 장애
