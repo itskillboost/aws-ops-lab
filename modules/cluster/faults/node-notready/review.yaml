@@ -1,0 +1,24 @@
+# cluster-1 재발 방지로 확인할 항목 — common/review.sh 가 읽는다. run 이 0으로 끝나면 충족.
+lab: cluster-1
+checks:
+  - name: 모든 노드가 Ready 다
+    run: test "$(kubectl get nodes --no-headers | awk '$2!="Ready"' | wc -l)" -eq 0
+    fix: NotReady 노드에 Session Manager 로 들어가 systemctl status kubelet containerd 로 멈춘 서비스를 찾으세요
+    ref: 해답 — 공통 확인
+  - name: 모든 노드에서 kubelet·containerd 가 켜져 있다(active)
+    run: |
+      source ~/opslab/modules/cluster/node.sh
+      for n in $(kubectl get nodes -o name | cut -d/ -f2); do
+        o=$(on_node "$n" "systemctl is-active kubelet containerd") || exit 1
+        [ "$(grep -c -x 'active' <<<"$o")" -eq 2 ] || exit 1
+      done
+    fix: 노드에서 sudo systemctl start kubelet containerd (EKS AL2023 노드는 부팅 때 nodeadm 이 두 서비스를 켜므로 enabled 가 아니어도 정상)
+    ref: 해답 — 변형 ①② 조치
+  - name: 런북의 확인 순서에 노드 안에서 서비스 상태·로그를 보는 단계(systemctl·journalctl)가 있다
+    run: grep -qE 'journalctl|systemctl' ~/opslab-work/cluster/runbook-cluster-1.md
+    fix: 런북 2. 확인 순서에 "Session Manager 로 노드 접속 → systemctl status kubelet containerd → journalctl -u kubelet" 을 적으세요
+    ref: 해답 — 근거가 된 출력
+  - name: 런북의 재발 방지에 노드 상태 감시(알람·자동 복구) 내용이 있다
+    run: grep -qE '알람|경보|자동 복구|auto ?repair|모니터링|Container Insights' ~/opslab-work/cluster/runbook-cluster-1.md
+    fix: 런북 5. 재발 방지에 "노드 NotReady 알람(Container Insights node_status_condition_ready)" 또는 "노드 자동 복구" 같은 감시 항목을 적으세요
+    ref: 해답 — 재발 방지

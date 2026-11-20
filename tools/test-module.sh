@@ -46,7 +46,7 @@ grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY" | while IFS='|' read -r lab fault vars l
     if [ -n "${RETRY:-}" ] && [ "$b" -ge 1 ]; then         # 재도전 → 해결 → 기록 → 검토
       W=~/opslab-work/$MOD; mkdir -p "$W"
       printf '# 가설: %s\n- 작성 시각: 시험\n- 파드 상태가 바뀔 것이다\n- 재시작이 늘 것이다\n- 응답이 실패할 것이다\n- describe·logs --previous·events 순으로 본다\n' "$lab" > "$W/hypothesis-$lab.md"
-      printf '# 런북\n## 1. 증상\n시험 증상\n## 2. 확인 순서\nkubectl describe pod, kubectl logs --previous, events\n## 3. 원인\n시험 원인 requests nodeSelector taint\n## 4. 조치\n시험 조치\n## 5. 재발 방지\nstartup liveness readiness 역할 구분, 스케줄 확인\n' > "$W/runbook-$lab.md"
+      printf '# 런북\n## 1. 증상\n시험 증상\n## 2. 확인 순서\nkubectl describe pod, kubectl logs --previous, events, kubectl get events --sort-by=.lastTimestamp, describe node, systemctl status kubelet, journalctl -u kubelet, Logs Insights authenticator audit\n## 3. 원인\n시험 원인 requests nodeSelector taint\n## 4. 조치\n시험 조치\n## 5. 재발 방지\nstartup liveness readiness 역할 구분, 스케줄 확인, 노드 알람 모니터링\n' > "$W/runbook-$lab.md"
       t=$(bash "$ROOT/common/inject.sh" retry "$lab" </dev/null 2>&1 | grep -c '✅'); sleep "${DEEP:-30}"
       LAB=$lab bash "$ROOT/modules/$MOD/faults/$fault/rollback.sh" >>"$LOG" 2>&1; sleep 80   # 해답 조치 대용
       bash "$ROOT/common/inject.sh" done "$lab" </dev/null >>"$LOG" 2>&1

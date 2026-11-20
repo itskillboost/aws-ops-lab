@@ -1,0 +1,8 @@
+# cluster 따라하기 페이지의 Headlamp 화면 (파일이름 | Headlamp 경로)
+cl-01-login | LOGIN
+cl-02-cluster | /c/main/
+cl-03-nodes | /c/main/nodes
+cl-04-node-full | /c/main/nodes/{NODE}
+cl-05-events | /c/main/events
+cl-06-pods-kube-system | /c/main/pods?namespace=kube-system
+cl-07-pods-app | /c/main/pods?namespace=app

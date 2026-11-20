@@ -1,0 +1,22 @@
+# cluster-3 재발 방지로 확인할 항목 — common/review.sh 가 읽는다. run 이 0으로 끝나면 충족.
+lab: cluster-3
+checks:
+  - name: 노드 역할의 접근 항목(유형 EC2_LINUX)이 있다
+    run: |
+      for a in $(aws eks list-access-entries --cluster-name $SID-cluster-eks --query 'accessEntries[]' --output text); do
+        [ "$(aws eks describe-access-entry --cluster-name $SID-cluster-eks --principal-arn "$a" --query accessEntry.type --output text)" = EC2_LINUX ] && exit 0
+      done; exit 1
+    fix: aws eks create-access-entry --cluster-name $SID-cluster-eks --principal-arn <노드 역할 ARN> --type EC2_LINUX
+    ref: 해답 — 변형 ① 조치
+  - name: 스케줄 금지(cordon)된 노드가 없다
+    run: test -z "$(kubectl get nodes -o jsonpath='{.items[?(@.spec.unschedulable==true)].metadata.name}')"
+    fix: kubectl uncordon <노드> — 누가 cordon 했는지 감사 로그로 확인한 뒤 해제하세요
+    ref: 해답 — 변형 ② 조치
+  - name: 노드를 바꿀 수 있는 권한(nodes patch)을 받은 실습 서비스 계정이 남아 있지 않다
+    run: test -z "$(kubectl get clusterrolebinding -o json | jq -r '.items[] | select(.subjects[]?|.kind=="ServiceAccount" and .namespace=="app") | .metadata.name')"
+    fix: 출처를 확인한 뒤 그 ClusterRoleBinding 과 서비스 계정을 지우세요(kubectl delete clusterrolebinding <이름>)
+    ref: 해답 — 변형 ② 재발 방지
+  - name: 런북의 확인 순서에 컨트롤 플레인 로그(authenticator·audit) 조회가 있다
+    run: grep -qiE 'authenticator|audit|감사|Logs Insights' ~/opslab-work/cluster/runbook-cluster-3.md
+    fix: 런북 2. 확인 순서에 "CloudWatch Logs Insights 로 /aws/eks/<클러스터>/cluster 의 authenticator·audit 로그 조회"를 적으세요
+    ref: 해답 — 근거가 된 출력

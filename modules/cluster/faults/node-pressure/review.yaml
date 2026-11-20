@@ -1,0 +1,23 @@
+# cluster-2 재발 방지로 확인할 항목 — common/review.sh 가 읽는다. run 이 0으로 끝나면 충족.
+lab: cluster-2
+checks:
+  - name: 어느 노드에도 자원 압박(Memory·Disk·PID Pressure)이 없다
+    run: test "$(kubectl get nodes -o json | jq '[.items[].status.conditions[]|select((.type|test("Pressure")) and .status=="True")]|length')" -eq 0
+    fix: 원인(큰 파일·제한 없는 파드)을 없앤 뒤 5분쯤 기다리세요 — kubelet 은 압박이 사라진 뒤에도 잠시 상태를 유지합니다
+    ref: 해답 — 정상 확인
+  - name: app 네임스페이스의 모든 컨테이너에 메모리 상한(limits.memory)이 있다
+    run: test -z "$(kubectl -n app get deploy,statefulset -o json | jq -r '.items[] | select([.spec.template.spec.containers[] | .resources.limits.memory // empty] | length < (.spec.template.spec.containers|length)) | .metadata.name')"
+    fix: 제한 없는 워크로드(kubectl -n app get deploy -o yaml 의 resources)를 지우거나 requests·limits 를 넣으세요. 네임스페이스에 LimitRange 기본값을 두는 것도 방법입니다
+    ref: 해답 — 변형 ②③ 재발 방지
+  - name: 노드 루트 디스크 사용률이 80% 미만이다
+    run: |
+      source ~/opslab/modules/cluster/node.sh
+      for n in $(kubectl get nodes -o name | cut -d/ -f2); do
+        u=$(on_node "$n" "df --output=pcent / | tail -1" | tr -dc 0-9); [ "${u:-100}" -lt 80 ] || exit 1
+      done
+    fix: 노드에서 sudo du -xh / --max-depth=2 | sort -h | tail 로 큰 파일을 찾아 지우세요
+    ref: 해답 — 변형 ① 조치
+  - name: 런북의 확인 순서에 이벤트를 시간순으로 보는 단계가 있다
+    run: grep -qE 'sort-by|시간순|Evicted|events' ~/opslab-work/cluster/runbook-cluster-2.md
+    fix: 런북 2. 확인 순서에 kubectl get events -A --sort-by=.lastTimestamp 와 describe node 의 Conditions 를 적으세요
+    ref: 해답 — 이벤트 시계열

@@ -1,0 +1,32 @@
+# workload 따라하기 명령 — Notion 「Day 1 · 워크로드 장애」 페이지와 같은 순서(페이지를 고치면 이 파일도 고친다)
+source ~/opslab-env.sh
+cd ~/opslab && git pull -q
+bash ~/opslab/common/start.sh workload
+bash ~/opslab/common/start.sh status
+bash ~/opslab/common/headlamp.sh
+bash ~/opslab/common/check.sh workload cluster
+source ~/opslab-env.sh
+source ~/opslab/common/eks.sh
+aws eks create-addon --cluster-name $SID-cluster-eks --addon-name metrics-server \
+  --tags Course=opslab,Module=workload,Owner=$SID
+aws eks wait addon-active --cluster-name $SID-cluster-eks --addon-name metrics-server
+sleep 60; kubectl top nodes
+bash ~/opslab/common/check.sh workload metrics
+kubectl create namespace app
+kubectl label namespace app course=opslab
+helm upgrade --install opslab-data ~/opslab/charts/opslab-data -n app --wait \
+  --set postgres.image="$(img postgres)" --set redis.image="$(img redis)"
+kubectl -n app get pods,pvc
+bash ~/opslab/common/check.sh workload data
+helm upgrade --install opslab-app ~/opslab/charts/opslab-app -n app --wait \
+  --set image.repository="$(img_repo app)" --set image.tag="$(img_tag app)" --set waitForDb.image="$(img busybox)"
+kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o wide
+kubectl -n app exec deploy/opslab-app -c app -- python3 -c "import urllib.request as u;print(u.urlopen('http://127.0.0.1:8080/db').read().decode())"
+helm -n app get values opslab-app --all | sed -n '/^env:/,/^image:/p;/^probes:/,/^readiness/p;/^resources:/,/^  requests/p'
+kubectl -n app get deploy opslab-app -o yaml | less     # q 로 나가기
+bash ~/opslab/common/check.sh workload app
+bash ~/opslab/common/load.sh pod
+sleep 70; bash ~/opslab/common/load.sh pod log
+bash ~/opslab/modules/workload/baseline/verify.sh
+kubectl -n app top pods
+bash ~/opslab/common/check.sh workload all

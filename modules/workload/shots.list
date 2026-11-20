@@ -1,0 +1,8 @@
+# workload 따라하기 페이지의 Headlamp 화면 (파일이름 | Headlamp 경로)
+hl-01-login | LOGIN
+hl-01b-after-login | /c/main/
+hl-02-nodes | /c/main/nodes
+hl-04-pvc | /c/main/storage/persistentvolumeclaims?namespace=app
+hl-05-deploy | /c/main/deployments/app/opslab-app
+hl-06-pod-full | /c/main/pods/app/{POD}
+hl-07-pods | /c/main/pods?namespace=app
