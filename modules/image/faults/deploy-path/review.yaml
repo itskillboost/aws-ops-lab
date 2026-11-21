@@ -1,0 +1,19 @@
+# image-4 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: image-4
+checks:
+  - name: 파이프라인 마지막 실행이 성공했고 최근 앱 커밋이 운영 이미지에 들어 있다
+    run: 'bash ~/opslab/modules/image/state.sh released'
+    fix: '배포 프로젝트 설정을 고친 뒤 [변경 사항 릴리스]로 파이프라인을 다시 돌리고, argocd app get opslab-prod 로 새 태그가 반영됐는지 확인하세요'
+    ref: '해답 — 정상 확인'
+  - name: 배포 프로젝트가 오늘 브랜치·내 ECR·opslab/github-token 을 가리킨다
+    run: 'bash ~/opslab/modules/image/state.sh deployenv'
+    fix: 'CodeBuild 프로젝트 $SID-image-deploy 의 환경변수 GITOPS_BRANCH(오늘 브랜치), ECR_URI(내 저장소 주소), GITHUB_TOKEN(Secrets Manager opslab/github-token)을 확인해 고치세요'
+    ref: '해답 — 변형별 조치'
+  - name: 운영 앱 파드가 모두 Ready 이고 이미지를 받지 못한 파드가 없다
+    run: '! kubectl -n app get pods -l app.kubernetes.io/name=opslab-app --no-headers | grep -qE "ImagePull|ErrImage|Pending"'
+    fix: 'Git 의 releaseRepository 가 내 ECR 주소인지 확인하고, 잘못 커밋된 값이면 파이프라인을 다시 돌려 올바른 주소를 커밋하게 하세요'
+    ref: '해답 — 변형 ② 조치'
+  - name: 런북에 "빌드 성공 후 배포 실패" 확인 경로(매니페스트 커밋 → Argo CD → 파드)가 있다
+    run: 'grep -qiE "Argo|argocd" ~/opslab-work/image/runbook-image-4.md && grep -qiE "커밋|commit|매니페스트|values" ~/opslab-work/image/runbook-image-4.md'
+    fix: '런북 2. 확인 순서에 "파이프라인 Deploy 단계 로그 → 오늘 브랜치에 image: 커밋이 들어왔나 → Argo CD 앱 리비전·파라미터 → 파드 이미지·이벤트(ImagePullBackOff)" 를 적으세요'
+    ref: '해답 — 런북 예시'

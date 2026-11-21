@@ -18,8 +18,8 @@ spec:
       valueFiles:
         - ../../gitops/envs/prod/values.yaml
       parameters:                               # 수강생마다 다른 값 — 루트 앱이 넘겨 준다
-        - { name: image.repository, value: "{{ .Values.image.repository }}" }
-        - { name: image.tag, value: "{{ .Values.image.tag }}" }
+        - { name: image.repository, value: "{{ .Values.releaseRepository | default .Values.image.repository }}" }   # 파이프라인이 커밋한 릴리스 이미지가 있으면 그것
+        - { name: image.tag, value: "{{ .Values.releaseTag | default .Values.image.tag }}" }
         - { name: waitForDb.image, value: "{{ .Values.busybox }}" }
         - { name: 'serviceAccount.annotations.eks\.amazonaws\.com/role-arn', value: "arn:aws:iam::{{ .Values.account }}:role/{{ .Values.sid }}-access-app-role" }
   destination:

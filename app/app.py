@@ -27,6 +27,7 @@ EKS 과정(컨테이너) 전용 환경변수 — 설정하지 않으면 아무 �
   REDIS_HOST, REDIS_PORT /cache 가 쓰는 Redis 주소
   /cache  Redis 조회(캐시 적중이면 hit, 아니면 DB 에서 읽어 넣고 miss)
   /aws    IRSA 로 받은 AWS 신원 확인(STS GetCallerIdentity)
+  APP_BUILD             이미지를 만든 커밋(짧은 SHA). 응답에 build 로 표시 (image 모듈 파이프라인이 빌드할 때 넣는다)
 """
 import os
 import random
@@ -77,6 +78,7 @@ def _base():
         "host": HOSTNAME,
         "version": os.environ.get("APP_VERSION", "v1"),
         "uptime_sec": int(time.time() - STARTED_AT),
+        **({"build": os.environ["APP_BUILD"]} if os.environ.get("APP_BUILD") else {}),
     }
 
 

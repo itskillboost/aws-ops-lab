@@ -1,0 +1,65 @@
+{
+  "pipeline": {
+    "name": "__SID__-image-pipeline",
+    "pipelineType": "V2",
+    "executionMode": "SUPERSEDED",
+    "roleArn": "__ROLE__",
+    "artifactStore": { "type": "S3", "location": "__BUCKET__" },
+    "triggers": [{
+      "providerType": "CodeStarSourceConnection",
+      "gitConfiguration": {
+        "sourceActionName": "GitHub",
+        "push": [{ "branches": { "includes": ["__BRANCH__"] }, "filePaths": { "includes": ["app/**", "pipeline/**"] } }]
+      }
+    }],
+    "stages": [
+      {
+        "name": "Source",
+        "actions": [{
+          "name": "GitHub", "namespace": "SourceVariables",
+          "actionTypeId": { "category": "Source", "owner": "AWS", "provider": "CodeStarSourceConnection", "version": "1" },
+          "configuration": { "ConnectionArn": "__CONN__", "FullRepositoryId": "__REPO__", "BranchName": "__BRANCH__",
+                             "OutputArtifactFormat": "CODE_ZIP", "DetectChanges": "true" },
+          "outputArtifacts": [{ "name": "SourceArtifact" }]
+        }]
+      },
+      {
+        "name": "Build",
+        "actions": [{
+          "name": "Image", "namespace": "BuildVariables",
+          "actionTypeId": { "category": "Build", "owner": "AWS", "provider": "CodeBuild", "version": "1" },
+          "configuration": {
+            "ProjectName": "__SID__-image-build",
+            "EnvironmentVariables": "[{\"name\":\"COMMIT_ID\",\"value\":\"#{SourceVariables.CommitId}\",\"type\":\"PLAINTEXT\"}]"
+          },
+          "inputArtifacts": [{ "name": "SourceArtifact" }]
+        }]
+      },
+      {
+        "name": "Scan",
+        "actions": [{
+          "name": "Gate",
+          "actionTypeId": { "category": "Build", "owner": "AWS", "provider": "CodeBuild", "version": "1" },
+          "configuration": {
+            "ProjectName": "__SID__-image-scan",
+            "EnvironmentVariables": "[{\"name\":\"IMAGE_TAG\",\"value\":\"#{BuildVariables.IMAGE_TAG}\",\"type\":\"PLAINTEXT\"}]"
+          },
+          "inputArtifacts": [{ "name": "SourceArtifact" }]
+        }]
+      },
+      {
+        "name": "Deploy",
+        "actions": [{
+          "name": "Manifest",
+          "actionTypeId": { "category": "Build", "owner": "AWS", "provider": "CodeBuild", "version": "1" },
+          "configuration": {
+            "ProjectName": "__SID__-image-deploy",
+            "EnvironmentVariables": "[{\"name\":\"IMAGE_TAG\",\"value\":\"#{BuildVariables.IMAGE_TAG}\",\"type\":\"PLAINTEXT\"}]"
+          },
+          "inputArtifacts": [{ "name": "SourceArtifact" }]
+        }]
+      }
+    ]
+  },
+  "tags": [{ "key": "Course", "value": "opslab" }, { "key": "Module", "value": "image" }, { "key": "Owner", "value": "__SID__" }]
+}

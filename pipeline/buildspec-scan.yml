@@ -1,0 +1,11 @@
+# image 모듈 — 2) 취약점 스캔 게이트. 빌드한 이미지의 ECR 스캔 결과를 읽어 기준을 넘으면 실패(파이프라인 정지)한다.
+# 프로젝트 환경변수: ECR_URI, GATE_SEVERITY(이 등급 이상을 센다: CRITICAL|HIGH|MEDIUM|LOW), GATE_MAX(허용 개수) / 파이프라인: IMAGE_TAG
+version: 0.2
+phases:
+  build:
+    commands:
+      - REPO="${ECR_URI##*/}"
+      - echo "== 스캔 게이트 ${REPO}:${IMAGE_TAG} — ${GATE_SEVERITY} 이상이 ${GATE_MAX}개를 넘으면 차단"
+      - aws ecr wait image-scan-complete --repository-name "$REPO" --image-id imageTag="$IMAGE_TAG"
+      - aws ecr describe-image-scan-findings --repository-name "$REPO" --image-id imageTag="$IMAGE_TAG" --query imageScanFindings.findingSeverityCounts --output json > counts.json
+      - bash pipeline/gate.sh counts.json "$REPO" "$IMAGE_TAG"
