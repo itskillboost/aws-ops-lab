@@ -6,7 +6,7 @@ bash ~/opslab/common/start.sh gitops
 source ~/opslab-env.sh
 bash ~/opslab/common/check.sh gitops env
 bash ~/opslab/common/headlamp.sh
-source ~/opslab-env.sh; echo $HEADLAMP_SOURCE
+source ~/opslab-env.sh; echo ${HEADLAMP_SOURCE:-}
 source ~/opslab/common/eks.sh
 # 구축 1 내 Fork 와 오늘 브랜치
 bash ~/opslab/common/fork.sh status
