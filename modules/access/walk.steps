@@ -1,0 +1,72 @@
+# access 따라하기 페이지의 명령을 페이지 순서대로 — tools/runner/walk.sh 가 한 줄씩 실행한다
+# 사전 조건
+source ~/opslab-env.sh
+cd ~/opslab && git pull -q
+bash ~/opslab/common/start.sh access
+source ~/opslab-env.sh
+bash ~/opslab/common/check.sh access env
+bash ~/opslab/common/headlamp.sh
+source ~/opslab/common/eks.sh
+# 구축 1 앱 IRSA 역할
+ACCT=$(aws sts get-caller-identity --query Account --output text); echo $ACCT
+ISSUER=$(aws eks describe-cluster --name $SID-cluster-eks --query cluster.identity.oidc.issuer --output text | sed 's#^https://##'); echo $ISSUER
+sed -e "s/__ACCT__/$ACCT/g" -e "s#__ISSUER__#$ISSUER#g" -e "s/__NS__/app/; s/__SA__/opslab-app/" ~/opslab/modules/access/irsa-trust.json > ~/app-trust.json; cat ~/app-trust.json
+aws iam create-role --role-name $SID-access-app-role --assume-role-policy-document file://$HOME/app-trust.json \
+  --permissions-boundary arn:aws:iam::$ACCT:policy/opslab-student-boundary \
+  --tags Key=Course,Value=opslab Key=Module,Value=access Key=Owner,Value=$SID --query Role.Arn --output text
+bash ~/opslab/common/check.sh access irsa
+# 구축 2 Vault 설치·초기화·봉인 해제
+kubectl create namespace vault; kubectl label namespace vault course=opslab
+helm upgrade --install vault ~/opslab/vendor/charts/vault -n vault \
+  --set server.image.repository=$(img_repo vault) --set server.image.tag=$(img_tag vault) \
+  --set injector.image.repository=$(img_repo vault-k8s) --set injector.image.tag=$(img_tag vault-k8s) \
+  --set injector.agentImage.repository=$(img_repo vault) --set injector.agentImage.tag=$(img_tag vault) \
+  --set server.dataStorage.size=1Gi --set server.dataStorage.storageClass=gp3
+until [ "$(kubectl -n vault get pod vault-0 -o jsonpath='{.status.phase}' 2>/dev/null)" = Running ]; do echo "  Vault 파드 기다리는 중…"; sleep 5; done; kubectl -n vault get pods
+kubectl -n vault exec vault-0 -- vault status || echo "  → Sealed true(봉인됨)가 정상입니다. 아직 초기화 전입니다"
+INIT=$(kubectl -n vault exec vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json); echo "$INIT" | jq '{unseal_keys_b64, root_token: "(가림)"}'
+aws secretsmanager create-secret --name $SID-access-vault-init --secret-string "$(echo "$INIT" | jq -c '{unseal_key: .unseal_keys_b64[0], root_token: .root_token}')" \
+  --tags Key=Course,Value=opslab Key=Module,Value=access Key=Owner,Value=$SID --query Name --output text
+kubectl -n vault exec vault-0 -- vault operator unseal "$(echo "$INIT" | jq -r '.unseal_keys_b64[0]')" | grep -E 'Sealed|Version'
+sed -e "s/__ACCT__/$ACCT/g" -e "s#__ISSUER__#$ISSUER#g" -e "s/__NS__/vault/; s/__SA__/vault-unsealer/" ~/opslab/modules/access/irsa-trust.json > ~/unsealer-trust.json
+aws iam create-role --role-name $SID-access-unsealer-role --assume-role-policy-document file://$HOME/unsealer-trust.json \
+  --permissions-boundary arn:aws:iam::$ACCT:policy/opslab-student-boundary \
+  --tags Key=Course,Value=opslab Key=Module,Value=access Key=Owner,Value=$SID --query Role.Arn --output text
+sed -e "s/__ACCT__/$ACCT/g" -e "s/__SID__/$SID/g" ~/opslab/modules/access/unsealer-policy.json > ~/unsealer-policy.json
+aws iam put-role-policy --role-name $SID-access-unsealer-role --policy-name inline --policy-document file://$HOME/unsealer-policy.json
+sed -e "s#__ROLE_ARN__#arn:aws:iam::$ACCT:role/$SID-access-unsealer-role#" -e "s#__SECRET__#$SID-access-vault-init#" -e "s#__IMAGE__#$(img app)#" ~/opslab/layers/k4-access/unsealer.yaml | kubectl apply -f -
+bash ~/opslab/common/check.sh access vault
+# 구축 3 비밀·정책·Kubernetes Auth
+VT=$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)
+v() { kubectl -n vault exec -i vault-0 -c vault -- env VAULT_TOKEN=$VT vault "$@"; }
+v secrets enable -path=secret kv-v2
+v kv put secret/opslab/db user=app password="$(kubectl -n app get secret opslab-db -o jsonpath='{.data.password}' | base64 -d)"
+echo 'path "secret/data/opslab/db" { capabilities = ["read"] }' | v policy write opslab-app -
+v auth enable kubernetes
+v write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc:443
+v write auth/kubernetes/role/opslab-app bound_service_account_names=opslab-app bound_service_account_namespaces=app policies=opslab-app ttl=1h
+bash ~/opslab/common/check.sh access auth
+# 구축 4 앱 전환(Vault 주입 + IRSA)
+helm -n app upgrade opslab-app ~/opslab/charts/opslab-app --reset-then-reuse-values --wait --timeout 6m \
+  --set db.source=vault --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=arn:aws:iam::$ACCT:role/$SID-access-app-role
+kubectl -n app get pods -l app.kubernetes.io/name=opslab-app
+kubectl -n app exec deploy/opslab-app -c app -- sed 's/PASSWORD=.*/PASSWORD=(가림)/' /etc/app/db-cred.env
+ALB=$(kubectl -n app get ingress opslab-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'); curl -s http://$ALB/db; echo; curl -s http://$ALB/aws; echo
+bash ~/opslab/common/check.sh access app
+# 구축 5 RBAC dev 역할
+kubectl apply -f ~/opslab/layers/k4-access/rbac-dev.yaml
+aws iam create-role --role-name $SID-access-dev-role --permissions-boundary arn:aws:iam::$ACCT:policy/opslab-student-boundary \
+  --assume-role-policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::$ACCT:root\"},\"Action\":\"sts:AssumeRole\"}]}" \
+  --tags Key=Course,Value=opslab Key=Module,Value=access Key=Owner,Value=$SID --query Role.Arn --output text
+aws iam put-role-policy --role-name $SID-access-dev-role --policy-name inline \
+  --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"eks:DescribeCluster","Resource":"*"}]}'
+for i in 1 2 3 4 5 6; do aws eks create-access-entry --cluster-name $SID-cluster-eks --principal-arn arn:aws:iam::$ACCT:role/$SID-access-dev-role --kubernetes-groups opslab-dev --query accessEntry.kubernetesGroups && break; echo "  새 역할이 퍼지는 중…(invalid principal 은 정상)"; sleep 10; done
+aws eks update-kubeconfig --name $SID-cluster-eks --role-arn arn:aws:iam::$ACCT:role/$SID-access-dev-role --kubeconfig ~/.kube/dev
+for i in 1 2 3 4 5 6; do kubectl --kubeconfig ~/.kube/dev -n app get pods && break; echo "  새 역할이 퍼지는 중…"; sleep 10; done
+kubectl --kubeconfig ~/.kube/dev -n app delete pod -l app.kubernetes.io/name=opslab-app --dry-run=server || echo "  → 삭제는 막혀 있습니다(정상: dev 는 보기·재시작만)"
+bash ~/opslab/common/check.sh access rbac
+# 2단계 정상 상태 정의
+bash ~/opslab/common/load.sh pod alb
+sleep 70; bash ~/opslab/common/load.sh pod log
+bash ~/opslab/modules/access/baseline/verify.sh
+bash ~/opslab/common/check.sh access all

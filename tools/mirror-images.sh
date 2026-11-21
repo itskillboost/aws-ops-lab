@@ -8,18 +8,18 @@ ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
 COURSE_FILE="$ROOT/courses/${COURSE:?COURSE=<과정ID> 를 지정하세요}.yaml"
 E="aws --region us-east-1 ecr-public"
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws >/dev/null
-sed -n '/^images:/,/^[a-z]/p' "$COURSE_FILE" | sed -n 's/^  \([a-z-]*\): *\([^ #]*\).*/\1 \2/p' | while read -r key src; do
+sed -n '/^images:/,/^[a-z]/p' "$COURSE_FILE" | sed -n 's/^  \([a-z0-9-]*\): *\([^ #]*\).*/\1 \2/p' | while read -r key src; do
   name=${src##*/}; repo=opslab/${name%%:*}; tag=${name##*:}
-  $E describe-repositories --repository-names "$repo" >/dev/null 2>&1 \
-    || $E create-repository --repository-name "$repo" --catalog-data "description=Ops Lab mirror of $src" >/dev/null
-  uri=$($E describe-repositories --repository-names "$repo" --query 'repositories[0].repositoryUri' --output text)
+  $E describe-repositories --repository-names "$repo" </dev/null >/dev/null 2>&1 \
+    || $E create-repository --repository-name "$repo" --catalog-data "description=Ops Lab mirror of $src" </dev/null >/dev/null
+  uri=$($E describe-repositories --repository-names "$repo" --query 'repositories[0].repositoryUri' --output text </dev/null)
   if [ "$key" = app ]; then
     docker build -q -f "$ROOT/app/Dockerfile" -t "$uri:$tag" "$ROOT" >/dev/null
   else
     case "$src" in *.*/*) from=$src ;; library/*) from=public.ecr.aws/docker/$src ;; *) from=docker.io/$src ;; esac
     docker pull -q --platform linux/amd64 "$from" >/dev/null && docker tag "$from" "$uri:$tag"
   fi
-  docker push -q "$uri:$tag" >/dev/null && echo "  ✅ $key  $src → $uri:$tag"
+  docker push -q "$uri:$tag" </dev/null >/dev/null && echo "  ✅ $key  $src → $uri:$tag" || echo "  ❌ $key  $src 미러 실패"
 done
 ALIAS=$($E describe-registries --query 'registries[0].aliases[0].name' --output text)
 echo "과정 파일에 적을 값 →  registry: public.ecr.aws/$ALIAS/opslab"

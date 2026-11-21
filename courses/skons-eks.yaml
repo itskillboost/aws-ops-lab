@@ -26,6 +26,8 @@ images:
   busybox: library/busybox:1.37
   headlamp: ghcr.io/headlamp-k8s/headlamp:v0.46.0
   lbc: public.ecr.aws/eks/aws-load-balancer-controller:v3.6.3   # AWS Load Balancer Controller (vendor/charts 3.6.3)
+  vault: hashicorp/vault:2.0.4    # Vault 서버(금고) — vendor/charts/vault 0.34.1
+  vault-k8s: hashicorp/vault-k8s:1.7.6   # Vault Agent Injector(사이드카 주입기)
 gitops_base_tag: eks-v1
 days:
   1: workload

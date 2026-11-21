@@ -1,0 +1,19 @@
+id: access
+title: 권한과 시크릿
+hours: 8
+requires: K3        # 아침에 배포: L1 네트워크 + K1 클러스터 + K2 워크로드 + K3 인그레스(ALB·Load Balancer Controller)
+builds: K4          # 직접 구축: 앱 IRSA 역할·Vault(Kubernetes Auth·Agent Injector·봉인 해제 CronJob)·RBAC dev 역할 = K4 층 (따라잡기 start.sh access full)
+topics:
+  - IRSA 설정 오류로 인한 AWS API 호출 실패
+  - 신뢰 정책과 OIDC 공급자 확인 순서
+  - Vault Kubernetes Auth 연동 실패
+  - 시크릿 주입 실패
+  - RBAC 권한 부족 판별
+  - 서비스 계정 토큰 만료
+# Lab ID | 장애 폴더 | 변형 수 | 구분 | 장애 유형(주입할 때 보여 줌)
+labs:
+  - access-1 | irsa | 3 | 필수 | 앱이 AWS API 를 부르지 못하는 장애(IRSA)
+  - access-2 | vault-auth | 3 | 필수 | 새 파드가 Vault 에 로그인하지 못하는 장애(Kubernetes Auth)
+  - access-3 | inject | 3 | 필수 | 새 파드에 비밀이 들어오지 않는 장애(시크릿 주입)
+  - access-4 | rbac | 3 | 필수 | 개발자가 클러스터에서 작업하지 못하는 장애(RBAC)
+  - access-5 | token | 2 | 심화 | 서비스 계정 토큰 때문에 금고 로그인이 실패하는 장애

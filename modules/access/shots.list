@@ -1,0 +1,8 @@
+# access 따라하기 페이지의 Headlamp 화면 (파일이름 | Headlamp 경로)
+ac-01-login | LOGIN
+ac-02-pods-vault | /c/main/pods?namespace=vault
+ac-03-pod-app-full | /c/main/pods/app/{POD}
+ac-04-sa-app-full | /c/main/serviceaccounts/app/opslab-app
+ac-05-cronjob-unsealer | /c/main/cronjobs/vault/vault-unsealer
+ac-06-role-dev-full | /c/main/roles/app/dev
+ac-07-rolebinding-dev | /c/main/rolebindings/app/dev

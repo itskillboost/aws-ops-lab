@@ -20,6 +20,15 @@ db:
   user: app
   source: secret                   # secret: 쿠버네티스 Secret(opslab-db) / vault: Vault Agent 주입(K4 층이 있는 날)
   secretName: opslab-db
+  # source: vault 일 때 — Vault Agent(사이드카)가 아래 경로의 비밀을 /etc/app/db-cred.env 파일로 써 준다(앱은 요청마다 이 파일을 읽는다)
+  vault:
+    role: opslab-app               # Vault Kubernetes Auth 역할 이름
+    path: secret/data/opslab/db    # KV v2 비밀 경로
+    template: |
+      {{- with secret "secret/data/opslab/db" -}}
+      DB_USER={{ .Data.data.user }}
+      DB_PASSWORD={{ .Data.data.password }}
+      {{- end }}
 redis:
   host: redis
   port: "6379"

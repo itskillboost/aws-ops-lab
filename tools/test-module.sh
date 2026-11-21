@@ -31,7 +31,7 @@ grep -qE "^requires: *K" "$MY" && { LT=""; kubectl -n app get ingress opslab-app
 n=$(bash "$ROOT/modules/$MOD/baseline/verify.sh" 2>&1 | tee -a "$LOG" | judge)
 say "baseline verify: FAIL ${n} (요청 수 제외)"; [ "$n" -eq 0 ] || FAILS=$((FAILS+1))
 
-grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY" | while IFS='|' read -r lab fault vars level type; do
+while IFS='|' read -r -u 3 lab fault vars level type; do   # 목록은 3번 통로로 — 안쪽 명령(kubectl exec -i 등)이 표준 입력을 먹어도 목록이 줄지 않는다
   lab=$(sed 's/^ *- *//' <<<"$lab" | xargs)
   vars=$(xargs <<<"$vars"); fault=$(xargs <<<"$fault")
   [ -n "${LABS:-}" ] && [[ " $LABS " != *" $lab "* ]] && continue
@@ -58,7 +58,7 @@ grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY" | while IFS='|' read -r lab fault vars l
     [ "$r" -ge 1 ] && [ "$b" -ge 1 ] && [[ "$d" != *"!"* ]] && res=OK || { res=XX; echo FAIL >> "$LOG.fail"; }
     say "$res $lab v$v ($fault) 주입=$r 원복=$b$d"
   done
-done
+done 3< <(grep -E '^ *- *[a-z]+-[0-9]+ *\|' "$MY")
 [ -f "$LOG.fail" ] && FAILS=$((FAILS + $(wc -l < "$LOG.fail"))) && rm -f "$LOG.fail"
 
 say "-- 원복 후 판정 대기 2분"; sleep 120

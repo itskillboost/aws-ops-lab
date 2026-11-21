@@ -1,0 +1,23 @@
+# access-2 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: access-2
+checks:
+  - name: 앱 파드가 모두 Ready 이고 Vault Agent 사이드카가 붙어 있다
+    run: test "$(kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready}{"\n"}{end}' | grep -c false)" -eq 0 && kubectl -n app get pods -l app.kubernetes.io/name=opslab-app -o jsonpath='{.items[*].spec.containers[*].name}' | grep -q vault-agent
+    fix: kubectl -n app logs <파드> -c vault-agent-init 의 마지막 오류(permission denied·connection refused·tokenreviews forbidden)를 보고 고치세요
+    ref: 해답 — 공통 확인
+  - name: Auth 역할이 app/opslab-app 을 허용한다
+    run: kubectl -n vault exec vault-0 -c vault -- env VAULT_TOKEN="$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)" vault read -format=json auth/kubernetes/role/opslab-app | jq -e '(.data.bound_service_account_namespaces|index("app")) and (.data.bound_service_account_names|index("opslab-app"))'
+    fix: vault write auth/kubernetes/role/opslab-app bound_service_account_names=opslab-app bound_service_account_namespaces=app policies=opslab-app ttl=1h
+    ref: 해답 — 변형 ① 조치
+  - name: Auth 설정의 쿠버네티스 API 주소가 https://kubernetes.default.svc(:443) 이다
+    run: kubectl -n vault exec vault-0 -c vault -- env VAULT_TOKEN="$(aws secretsmanager get-secret-value --secret-id $SID-access-vault-init --query SecretString --output text | jq -r .root_token)" vault read -format=json auth/kubernetes/config | jq -e '.data.kubernetes_host|test("^https://kubernetes.default.svc(:443)?$")'
+    fix: vault write auth/kubernetes/config kubernetes_host=https://kubernetes.default.svc:443
+    ref: 해답 — 변형 ② 조치
+  - name: Vault 서비스 계정에 토큰 검토 권한(system:auth-delegator)이 있다
+    run: kubectl auth can-i create tokenreviews --as=system:serviceaccount:vault:vault | grep -qx yes
+    fix: kubectl create clusterrolebinding vault-server-binding --clusterrole=system:auth-delegator --serviceaccount=vault:vault
+    ref: 해답 — 변형 ③ 조치
+  - name: 런북의 확인 순서에 vault-agent-init 로그와 Vault 쪽 Auth 설정 확인이 있다
+    run: grep -qiE 'vault-agent-init|agent.*로그' ~/opslab-work/access/runbook-access-2.md && grep -qiE 'auth/kubernetes|Auth 역할|tokenreview|auth-delegator' ~/opslab-work/access/runbook-access-2.md
+    fix: 런북 2. 확인 순서에 "kubectl logs <파드> -c vault-agent-init → vault read auth/kubernetes/role·config → auth-delegator 바인딩" 을 적으세요
+    ref: 해답 — 런북 예시

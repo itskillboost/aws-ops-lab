@@ -1,0 +1,19 @@
+# RBAC 실습: 개발자(dev) 역할 — app 네임스페이스에서 "보기·로그 읽기·재시작"만 할 수 있다.
+# 접근 항목(Access Entry)이 IAM 역할 <학번>-access-dev-role 을 쿠버네티스 그룹 opslab-dev 로 들여보내고, 이 RoleBinding 이 그 그룹에 권한을 준다.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: dev, namespace: app, labels: { course: opslab } }
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, endpoints, configmaps, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets]
+    verbs: [get, list, watch, patch]      # patch: kubectl rollout restart 에 필요
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: dev, namespace: app, labels: { course: opslab } }
+subjects:
+  - { kind: Group, name: opslab-dev, apiGroup: rbac.authorization.k8s.io }
+roleRef: { kind: Role, name: dev, apiGroup: rbac.authorization.k8s.io }
