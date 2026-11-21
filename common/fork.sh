@@ -11,6 +11,8 @@ source "$ROOT/common/eks.sh"; source "$ROOT/common/gh.sh"
 R=${GITHUB_REPO:-}; UP=$(cval upstream_repo); TAG=${GITOPS_BASE:-$(cval gitops_base_tag)}
 [ -n "$R" ] || { echo "❌ ~/opslab-env.sh 에 export GITHUB_REPO=<내 GitHub ID>/aws-ops-lab 가 없습니다 (Day 0 따라하기 5단계)"; exit 1; }
 GH_T=$(gh_token); [ -n "$GH_T" ] || { echo "❌ GitHub 토큰 시크릿(opslab/github-token)이 없습니다 (Day 0 따라하기 5단계)"; exit 1; }
+[[ "$GH_T" =~ ^(github_pat_|ghp_)[A-Za-z0-9_]+$ ]] || { echo "❌ opslab/github-token 에 든 값이 GitHub 토큰 모양(github_pat_… 또는 ghp_…)이 아닙니다 — 명령이나 공백을 함께 붙여 넣었을 수 있습니다."
+  echo "   ↳ 고치기: read -rsp 'GitHub 토큰: ' T; echo; aws secretsmanager put-secret-value --secret-id opslab/github-token --secret-string \"\$T\"; unset T"; exit 1; }
 export GH_T
 envset() { grep -q "^export $1=" ~/opslab-env.sh 2>/dev/null && sed -i "s#^export $1=.*#export $1=$2#" ~/opslab-env.sh || echo "export $1=$2" >> ~/opslab-env.sh; }
 
