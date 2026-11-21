@@ -19,12 +19,12 @@ commit() { gh_edit "$R" "$B" "$1" "$2" "$3"; }                # $1=파일 $2=커
 commit_append() { { gh_get "$R" "$B" "$1"; printf '%s\n' "$3"; } | gh_put "$R" "$B" "$1" "$2"; }   # $1=파일 $2=메시지 $3=끝에 덧붙일 줄
 release_v2() { commit "$PV" "릴리스 v2" 's/^  APP_VERSION: v1$/  APP_VERSION: v2/'; }   # 새 버전 배포 커밋(반영됐는지 보는 표시)
 kick() { app_refresh $APPS; }                                 # Argo CD 가 Git 을 바로 다시 보게(평소엔 1분마다)
-wait_prod_rev() {  # 운영 앱이 브랜치 끝 커밋으로 동기화를 시작할 때까지(최대 $1초) — Git 을 다시 보라는 신호는 30초에 한 번만
+wait_prod_rev() {  # 운영 앱이 브랜치 끝 커밋으로 동기화를 마칠 때까지(최대 $1초) — Git 을 다시 보라는 신호는 30초에 한 번만
   local h; h=$(gh_head "$R" "$B")
   for i in $(seq 1 $(( ${1:-180} / 5 ))); do
-    [ "$(app_json opslab-prod | jq -r '.status.operationState.syncResult.revision // .status.sync.revision // ""')" = "$h" ] && return 0
+    app_json opslab-prod | jq -e --arg h "$h" '.status.operationState.syncResult.revision == $h and .status.operationState.phase == "Succeeded"' >/dev/null && return 0
     [ $((i % 6)) -eq 0 ] && kick; sleep 5
-  done; return 1
+  done; echo "운영 앱이 ${h:0:7} 으로 동기화를 마치지 못했습니다" >&2; return 1
 }
 wait_spec() {  # $1=jq 조건(운영 앱 Application 에 대해) — 루트 앱이 바뀐 앱 정의를 적용할 때까지(최대 180초)
   for i in $(seq 1 36); do app_json opslab-prod | jq -e "$1" >/dev/null && return 0; [ $((i % 6)) -eq 0 ] && kick; sleep 5; done

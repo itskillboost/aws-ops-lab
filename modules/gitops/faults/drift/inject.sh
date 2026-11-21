@@ -7,7 +7,7 @@ case $V in
   1) # 자동 치유(selfHeal)를 끈 커밋 → 그 뒤 누군가 디버깅하다 kubectl 로 바꾼 값(오류율 50%)이 그대로 남았다
      commit "$PA" "운영 앱: 디버깅하는 동안 자동 치유 끔" 's/selfHeal: true/selfHeal: false/'
      kick; wait_spec '.spec.syncPolicy.automated.selfHeal != true'
-     wait_prod_rev 180; sleep 30   # 새 커밋으로 한 번 자동 동기화한 뒤에 손을 대야 남는다(커밋이 바뀌면 자동 동기화가 수동 변경을 덮는다)
+     app_sync opslab-prod; wait_prod_rev 180; sleep 10   # 새 커밋으로 한 번 동기화를 마쳐 둔다 — 아직 동기화하지 않은 커밋이 있으면 OutOfSync 를 보자마자 자동 동기화가 수동 변경을 덮는다
      kubectl -n "$NS" set env deploy/"$DEP" APP_ERROR_RATE=0.5 >/dev/null ;;
   2) # 운영 값에 시험용 오류 플래그가 커밋됐다 → 당직자가 kubectl 로 급히 껐지만 자동 치유가 Git 값으로 되돌린다
      commit "$PV" "운영 값: 오류 처리 시험 플래그 추가" 's/^  APP_VERSION: v1$/  APP_VERSION: v1\n  APP_ERROR_RATE: "0.5"   # 오류 처리 시험/'
