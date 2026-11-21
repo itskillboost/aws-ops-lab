@@ -25,7 +25,7 @@ gh_get() {  # $1=저장소 $2=브랜치 $3=파일 경로 → 파일 내용 (없�
   jq -r .content <<<"$j" | base64 -d
 }
 gh_put() {  # $1=저장소 $2=브랜치 $3=파일 경로 $4=커밋 메시지, 표준 입력=새 내용 → 커밋(있으면 고치고 없으면 만든다)
-  local sha c; sha=$(gh_api GET "/repos/$1/contents/$3?ref=$2" 2>/dev/null | jq -r '.sha // empty')
+  local sha c; sha=$(gh_api GET "/repos/$1/contents/$3?ref=$2" 2>/dev/null | jq -r '.sha // empty' || true)   # 새 파일이면 404 — set -e 에서도 멈추지 않게
   c=$(base64 -w0)
   jq -nc --arg m "$4" --arg c "$c" --arg b "$2" --arg s "$sha" '{message:$m, content:$c, branch:$b} + (if $s != "" then {sha:$s} else {} end)' \
     | gh_api PUT "/repos/$1/contents/$3" >/dev/null
