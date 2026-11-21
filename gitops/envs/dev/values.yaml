@@ -1,7 +1,7 @@
 # 개발(dev) 환경 값 — 파드 1개, DB·캐시 없이 화면(API)만 시험한다.
 replicaCount: 1
 env:
-  APP_VERSION: dev
+  APP_VERSION: dev-2
   APP_DB_CHECK_ON_START: "0"
 db:
   source: none           # DB 를 쓰지 않는다(비밀번호도 주입하지 않음)
