@@ -1,0 +1,30 @@
+# Argo CD 설치 값(vendor/charts/argo-cd 9.7.1) — gitops 모듈 구축 1과 K5 층(layers/k5-gitops.sh)이 같은 파일을 쓴다.
+# 이미지 주소(강사 미러)와 접속 허용 IP 는 설치 명령에서 --set 으로 넣는다.
+global:
+  domain: ""
+configs:
+  cm:
+    timeout.reconciliation: 60s          # Git 을 1분마다 다시 본다(기본 2분) — 실습에서 커밋이 빨리 반영되게
+    timeout.reconciliation.jitter: 10s
+    application.resourceTrackingMethod: annotation   # 누가 만든 리소스인지 어노테이션으로 표시(라벨을 건드리지 않음)
+  params:
+    server.insecure: true                # HTTP 로 연다(인증서 없이). 접속은 내 PC IP 만 허용한 로드밸런서로
+dex:
+  enabled: false                         # 외부 로그인(SSO) 쓰지 않음 — admin 계정으로 로그인
+notifications:
+  enabled: false
+applicationSet:
+  replicas: 0                            # ApplicationSet 은 이 과정에서 쓰지 않는다
+controller:
+  resources: { requests: { cpu: 100m, memory: 256Mi } }
+repoServer:
+  resources: { requests: { cpu: 50m, memory: 128Mi } }
+server:
+  resources: { requests: { cpu: 50m, memory: 64Mi } }
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+redis:
+  resources: { requests: { cpu: 20m, memory: 32Mi } }

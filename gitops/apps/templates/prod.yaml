@@ -1,0 +1,39 @@
+# 운영(prod) 앱 — 샘플 앱 차트(charts/opslab-app)에 운영 값(envs/prod/values.yaml)을 넣어 app 네임스페이스에 배포한다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opslab-prod
+  namespace: argocd
+  labels: { course: opslab, env: prod }
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # 이 앱을 지우면 앱이 만든 리소스(Deployment 등)도 함께 지운다
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.revision }}
+    path: charts/opslab-app
+    helm:
+      releaseName: opslab-app
+      valueFiles:
+        - ../../gitops/envs/prod/values.yaml
+      parameters:                               # 수강생마다 다른 값 — 루트 앱이 넘겨 준다
+        - { name: image.repository, value: "{{ .Values.image.repository }}" }
+        - { name: image.tag, value: "{{ .Values.image.tag }}" }
+        - { name: waitForDb.image, value: "{{ .Values.busybox }}" }
+        - { name: 'serviceAccount.annotations.eks\.amazonaws\.com/role-arn', value: "arn:aws:iam::{{ .Values.account }}:role/{{ .Values.sid }}-access-app-role" }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app
+  syncPolicy:
+    automated:
+      prune: true        # Git 에서 지운 리소스는 클러스터에서도 지운다
+      selfHeal: true     # 누가 클러스터를 손으로 바꾸면 Git 상태로 되돌린다
+    syncOptions:
+      - RespectIgnoreDifferences=true
+    retry: { limit: 3, backoff: { duration: 10s, factor: 2, maxDuration: 1m } }
+  ignoreDifferences:     # 파드 수는 HPA(자동 확장)가 정한다 — Git 의 replicas 로 되돌리지 않는다
+    - group: apps
+      kind: Deployment
+      name: opslab-app
+      jsonPointers: [ /spec/replicas ]

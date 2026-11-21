@@ -53,6 +53,10 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports: [{ name: http, containerPort: 8080 }]
+          {{- if .Values.config.data }}
+          envFrom:
+            - configMapRef: { name: {{ .Values.config.name | default (printf "%s-config" .Release.Name) }} }
+          {{- end }}
           env:
             {{- range $k, $v := .Values.env }}
             - { name: {{ $k }}, value: {{ $v | quote }} }

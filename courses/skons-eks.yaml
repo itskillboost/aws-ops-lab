@@ -28,6 +28,10 @@ images:
   lbc: public.ecr.aws/eks/aws-load-balancer-controller:v3.6.3   # AWS Load Balancer Controller (vendor/charts 3.6.3)
   vault: hashicorp/vault:2.0.4    # Vault 서버(금고) — vendor/charts/vault 0.34.1
   vault-k8s: hashicorp/vault-k8s:1.7.6   # Vault Agent Injector(사이드카 주입기)
+  argocd: quay.io/argoproj/argocd:v3.4.4   # Argo CD(GitOps 감시원) — vendor/charts/argo-cd 9.7.1
+  argocd-redis: library/redis:8.2.3-alpine # Argo CD 내부 캐시(차트 9.7.1 기본 태그)
+# GitOps — 수강생 Fork(~/opslab-env.sh 의 GITHUB_REPO=<내 ID>/aws-ops-lab)의 그날 브랜치 opslab/<모듈>-<날짜> 를 이 태그에서 만든다
+upstream_repo: worldvit/aws-ops-lab
 gitops_base_tag: eks-v1
 days:
   1: workload

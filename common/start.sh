@@ -53,6 +53,12 @@ B=$(sed -n 's/^builds: *\([LK][0-9]\).*/\1/p' "$MY")
 aws cloudformation describe-stacks --stack-name "$SID-l0" >/dev/null 2>&1 \
   || { echo "❌ L0 층($SID-l0)이 없습니다. Day 0 준비를 먼저 끝내세요."; exit 1; }
 
+# GitOps 를 쓰는 날(module.yaml 에 fork: true — gitops·image·heal): 내 Fork 를 원본과 동기화하고 오늘 브랜치를 만든다(Argo CD 는 이 브랜치만 본다)
+if grep -q '^fork: *true' "$MY"; then
+  bash "$ROOT/common/fork.sh" prepare "$MOD" || exit 1
+  source ~/opslab-env.sh
+fi
+
 params() {  # 층별 추가 매개변수
   case "$1" in
     K1) local ver arn

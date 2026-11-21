@@ -1,0 +1,72 @@
+# gitops 따라하기 페이지의 명령을 페이지 순서대로 — tools/runner/walk.sh 가 한 줄씩 실행한다
+# 사전 조건
+source ~/opslab-env.sh
+cd ~/opslab && git pull -q
+bash ~/opslab/common/start.sh gitops
+source ~/opslab-env.sh
+bash ~/opslab/common/check.sh gitops env
+bash ~/opslab/common/headlamp.sh
+source ~/opslab-env.sh; echo $HEADLAMP_SOURCE
+source ~/opslab/common/eks.sh
+# 구축 1 내 Fork 와 오늘 브랜치
+bash ~/opslab/common/fork.sh status
+bash ~/opslab/common/fork.sh clone
+ls ~/fork/gitops ~/fork/gitops/apps/templates ~/fork/gitops/envs
+cat ~/fork/gitops/apps/templates/prod.yaml
+bash ~/opslab/common/check.sh gitops fork
+# 구축 2 Argo CD 설치
+kubectl create namespace argocd; kubectl label namespace argocd course=opslab
+helm upgrade --install argocd ~/opslab/vendor/charts/argo-cd -n argocd --wait --timeout 10m \
+  -f ~/opslab/layers/k5-gitops/argocd-values.yaml \
+  --set global.image.repository=$(img_repo argocd) --set global.image.tag=$(img_tag argocd) \
+  --set redis.image.repository=$(img_repo argocd-redis) --set redis.image.tag=$(img_tag argocd-redis) \
+  --set-string "server.service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-additional-resource-tags=Course=opslab\,Module=gitops\,Owner=$SID" \
+  --set "server.service.loadBalancerSourceRanges={$HEADLAMP_SOURCE}"
+kubectl -n argocd get pods
+bash ~/opslab/common/argocd.sh
+source ~/opslab-env.sh
+argocd version --short
+bash ~/opslab/common/check.sh gitops argocd
+# 구축 3 저장소 등록
+argocd repo add https://github.com/$GITHUB_REPO.git --username x-access-token \
+  --password "$(aws secretsmanager get-secret-value --secret-id opslab/github-token --query SecretString --output text)"
+argocd repo list
+bash ~/opslab/common/check.sh gitops repo
+# 구축 4 App of Apps
+helm -n app list
+kubectl -n app delete secret -l owner=helm,name=opslab-app
+ACCT=$(aws sts get-caller-identity --query Account --output text); echo $ACCT
+sed -e "s#__REPO__#$GITHUB_REPO#g" -e "s#__BRANCH__#$GITOPS_BRANCH#g" -e "s#__SID__#$SID#g" -e "s#__ACCT__#$ACCT#g" \
+  -e "s#__APP_REPO__#$(img_repo app)#g" -e "s#__APP_TAG__#$(img_tag app)#g" -e "s#__BUSYBOX__#$(img busybox)#g" \
+  ~/opslab/gitops/root.yaml > ~/root-app.yaml; grep -nE 'repoURL|revision|sid|account' ~/root-app.yaml
+kubectl apply -f ~/root-app.yaml
+argocd app wait opslab-root --sync --health --timeout 300
+argocd app wait opslab-prod opslab-dev --sync --health --timeout 420
+argocd app list
+bash ~/opslab/common/check.sh gitops root
+# 구축 5 dev·prod 환경 분리와 Git 변경 반영
+diff ~/fork/gitops/envs/dev/values.yaml ~/fork/gitops/envs/prod/values.yaml || true
+kubectl -n app get pods -l app.kubernetes.io/instance=opslab-app; kubectl -n app-dev get pods
+cd ~/fork && sed -i 's/^  APP_VERSION: dev$/  APP_VERSION: dev-2/' gitops/envs/dev/values.yaml && git commit -qam "dev: 버전 표시 dev-2" && git push -q && git log --oneline -3
+argocd app get opslab-dev --refresh >/dev/null; argocd app wait opslab-dev --sync --health --timeout 180
+kubectl -n app-dev get deploy opslab-app -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="APP_VERSION")].value}'; echo
+bash ~/opslab/common/check.sh gitops envs
+# 구축 6 동기화 정책과 자동 치유
+argocd app get opslab-prod | head -20
+kubectl -n app set env deploy/opslab-app APP_VERSION=manual
+sleep 30; kubectl -n app get deploy opslab-app -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="APP_VERSION")].value}'; echo
+argocd app history opslab-prod
+kubectl -n app scale deploy opslab-app --replicas=3; sleep 20; argocd app get opslab-prod | grep -E 'Sync Status|Health Status'
+bash ~/opslab/common/check.sh gitops sync
+# 2단계 정상 상태 정의
+bash ~/opslab/common/load.sh pod alb
+sleep 75
+bash ~/opslab/modules/gitops/baseline/verify.sh
+bash ~/opslab/common/check.sh gitops load
+# 운영 Lab gitops-1 Argo CD 구성 요소와 동작 방식
+kubectl -n argocd get deploy,statefulset,svc
+kubectl -n argocd logs deploy/argocd-repo-server --tail=200 | grep -iE 'generat|manifest' | tail -5 || true
+kubectl -n argocd logs statefulset/argocd-application-controller --tail=300 | grep -E 'opslab-prod' | grep -iE 'reconcil|sync' | tail -5 || true
+argocd app manifests opslab-prod | grep -E '^kind:' | sort | uniq -c
+argocd app resources opslab-prod
+kubectl -n argocd get applications.argoproj.io opslab-prod -o jsonpath='{.status.sync.revision}'; echo; bash ~/opslab/modules/gitops/gitfile.sh log | head -3

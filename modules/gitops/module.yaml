@@ -1,0 +1,22 @@
+id: gitops
+title: GitOps와 Argo CD 운영
+hours: 8
+requires: K4        # 아침에 배포: L1 네트워크 + K1 클러스터 + K2 워크로드 + K3 인그레스 + K4 권한·시크릿(Vault·IRSA)
+builds: K5          # 직접 구축: Argo CD·내 Fork 등록·App of Apps·dev/prod 환경 분리·동기화 정책 = K5 층 (따라잡기 start.sh gitops full)
+fork: true          # start.sh 가 내 Fork 를 동기화하고 오늘 브랜치 opslab/gitops-<날짜> 를 만든다
+topics:
+  - Argo CD 구성 요소와 동작 방식 (운영 Lab gitops-1 — 따라하기 페이지)
+  - App of Apps 구조 (구축)
+  - 동기화 정책과 자동 치유
+  - 수동 변경 발생 시 동작
+  - Sync 실패 원인 추적(리소스 적용 순서, 훅, 헬스 판정)
+  - 이전 리비전 롤백
+  - Helm 차트와 values 기반 환경 분리 (구축 + gitops-5)
+  - Argo CD 자체 장애 대응
+# Lab ID | 장애 폴더 | 변형 수 | 구분 | 장애 유형(주입할 때 보여 줌)
+labs:
+  - gitops-2 | drift | 3 | 필수 | 클러스터가 Git 과 다르게 움직이는 장애(수동 변경·자동 치유)
+  - gitops-3 | sync-fail | 3 | 필수 | 새 버전이 반영되지 않는 배포(Sync) 장애
+  - gitops-4 | rollback | 2 | 필수 | 잘못된 커밋 때문에 서비스가 망가진 장애(이전 리비전으로 되돌리기)
+  - gitops-5 | env-values | 2 | 심화 | 운영·개발 환경 값이 엇갈린 장애(Helm values)
+  - gitops-6 | argocd | 3 | 심화 | Argo CD 자신이 고장 나 Git 이 반영되지 않는 장애

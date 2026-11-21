@@ -1,0 +1,17 @@
+# 운영(prod) 환경 값 — charts/opslab-app/values.yaml(기본값)에서 바꾸는 것만 적는다.
+replicaCount: 2
+env:
+  APP_VERSION: v1
+db:
+  source: vault          # DB 비밀번호는 Vault(금고)에서 — 사이드카가 /etc/app/db-cred.env 로 써 준다
+config:                  # 앱 설정(ConfigMap) — 앱보다 먼저 만들어야 한다(sync-wave -1)
+  name: opslab-app-config-v1
+  wave: "-1"
+  data:
+    APP_GREETING: hello
+precheck:                # 배포 전 점검(PreSync 훅): DB 에 접속되는지 확인한 뒤에만 배포한다
+  enabled: true
+hpa:                     # 파드 수는 HPA 가 2~6 개 사이에서 정한다
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6

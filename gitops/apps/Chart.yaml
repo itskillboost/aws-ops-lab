@@ -1,0 +1,5 @@
+apiVersion: v2
+name: opslab-apps
+description: Ops Lab App of Apps — 앱 목록(목차). 템플릿 하나가 Argo CD 앱 하나다
+type: application
+version: 1.0.0

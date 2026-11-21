@@ -1,0 +1,32 @@
+# 개발(dev) 앱 — 같은 샘플 앱 차트에 개발 값(envs/dev/values.yaml)을 넣어 app-dev 네임스페이스에 배포한다(네임스페이스는 Argo CD 가 만든다).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opslab-dev
+  namespace: argocd
+  labels: { course: opslab, env: dev }
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.revision }}
+    path: charts/opslab-app
+    helm:
+      releaseName: opslab-app
+      valueFiles:
+        - ../../gitops/envs/dev/values.yaml
+      parameters:
+        - { name: image.repository, value: "{{ .Values.image.repository }}" }
+        - { name: image.tag, value: "{{ .Values.image.tag }}" }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app-dev
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels: { course: opslab }
+    retry: { limit: 3, backoff: { duration: 10s, factor: 2, maxDuration: 1m } }

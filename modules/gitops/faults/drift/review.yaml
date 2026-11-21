@@ -1,0 +1,19 @@
+# gitops-2 재발 방지로 확인할 항목 — common/review.sh 가 읽는다. 내 Fork 의 오늘 브랜치 파일은 GitHub API 로 읽는다.
+lab: gitops-2
+checks:
+  - name: 운영 앱의 자동 치유(selfHeal)·자동 정리(prune)가 켜져 있다
+    run: 'kubectl -n argocd get applications.argoproj.io opslab-prod -o json | jq -e ''.spec.syncPolicy.automated.selfHeal == true and .spec.syncPolicy.automated.prune == true'' >/dev/null'
+    fix: 'gitops/apps/templates/prod.yaml 의 syncPolicy.automated 에 selfHeal true 를 되살려 커밋·푸시하세요(앱 정의는 루트 앱이 Git 에서 읽으므로 argocd app set 으로 바꾸면 되돌아갑니다)'
+    ref: '해답 — 변형 ① 조치'
+  - name: 운영 앱이 Synced 이고 오류 플래그가 0 이다
+    run: 'kubectl -n argocd get applications.argoproj.io opslab-prod -o jsonpath=''{.status.sync.status}'' | grep -qx Synced && kubectl -n app get deploy opslab-app -o json | jq -e ''[.spec.template.spec.containers[0].env[] | select(.name=="APP_ERROR_RATE") | .value] == ["0"]'' >/dev/null'
+    fix: 'Git 에서 APP_ERROR_RATE 를 지우는 커밋(git revert)을 푸시하고 argocd app sync opslab-prod — kubectl 로 고치면 자동 치유가 되돌립니다'
+    ref: '해답 — 변형 ② 조치'
+  - name: 운영 앱 정의에 replicas 를 무시하는 ignoreDifferences 가 있다
+    run: 'bash ~/opslab/modules/gitops/gitfile.sh gitops/apps/templates/prod.yaml | grep -A4 ''^  ignoreDifferences:'' | grep -q ''/spec/replicas'''
+    fix: 'prod.yaml 끝에 ignoreDifferences(Deployment opslab-app 의 /spec/replicas)를 되살리고, syncOptions 에 RespectIgnoreDifferences=true 가 있는지 확인하세요'
+    ref: '해답 — 변형 ③ 조치'
+  - name: 런북에 자동 치유(self-heal)와 OutOfSync·diff 확인이 있다
+    run: 'grep -qiE ''self-?heal|자동 치유'' ~/opslab-work/gitops/runbook-gitops-2.md && grep -qiE ''OutOfSync|diff'' ~/opslab-work/gitops/runbook-gitops-2.md'
+    fix: '런북 2. 확인 순서에 "argocd app get(OutOfSync 여부) → argocd app diff(무엇이 다른가) → 동기화 정책(self-heal 자동 치유 켜짐?) → Git 커밋 기록" 을 적으세요'
+    ref: '해답 — 런북 예시'
