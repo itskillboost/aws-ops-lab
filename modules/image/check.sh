@@ -38,7 +38,7 @@ stage_pipe() {      # 구축 5: 파이프라인과 첫 배포
 stage_release() {   # 구축 6: 앱 커밋 → 자동 배포
   _im; local t
   gh_get "$(fork_repo)" "$(fork_branch)" app/app.py | grep -q "hello from opslab ($SID)" && ok "앱 변경 커밋이 오늘 브랜치에 있음" || ng "앱 변경 커밋이 없습니다" "구축 6 — ~/fork/app/app.py 의 인사말을 고쳐 git commit·push"
-  bash "$EKS_ROOT/modules/image/state.sh" released >/dev/null && ok "그 커밋이 운영 이미지에 들어감" || ng "앱 커밋이 아직 운영에 반영되지 않았습니다" "구축 6 — 파이프라인 진행을 기다린 뒤(5분 안팎) 다시 확인"
+  bash "$EKS_ROOT/modules/image/state.sh" released >/dev/null && ok "그 커밋이 운영 이미지에 들어감" || ng "앱 커밋이 아직 운영에 반영되지 않았습니다" "구축 6 — 5분 뒤 다시 확인. 파이프라인 실행 목록에 새 실행이 없으면 GitHub 앱이 내 계정에 설치됐는지(막혔을 때 표)"
 }
 stage_load() {      # 2단계(정상 상태 정의)
   kubectl -n app get deploy opslab-load -o jsonpath='{.spec.template.spec.containers[0].env[0].value}' 2>/dev/null | grep -q elb.amazonaws.com \
