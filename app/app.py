@@ -138,7 +138,7 @@ def api():
     rate = float(os.environ.get("APP_ERROR_RATE", "0") or 0)
     if random.random() < rate:
         return jsonify(status="error", message="internal error", **_base()), 500
-    return jsonify(status="ok", message="hello from opslab", **_base())
+    return jsonify(status="ok", message="hello from opslab (s00)", **_base())
 
 
 @app.route("/slow")
