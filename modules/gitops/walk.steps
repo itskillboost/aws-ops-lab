@@ -52,7 +52,7 @@ argocd app get opslab-dev --refresh >/dev/null; argocd app wait opslab-dev --syn
 kubectl -n app-dev get deploy opslab-app -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="APP_VERSION")].value}'; echo
 bash ~/opslab/common/check.sh gitops envs
 # 구축 6 동기화 정책과 자동 치유
-argocd app get opslab-prod | head -20
+argocd app get opslab-prod | sed -n 1,20p
 kubectl -n app set env deploy/opslab-app APP_VERSION=manual
 sleep 30; kubectl -n app get deploy opslab-app -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="APP_VERSION")].value}'; echo
 argocd app history opslab-prod
@@ -65,7 +65,7 @@ bash ~/opslab/modules/gitops/baseline/verify.sh
 bash ~/opslab/common/check.sh gitops load
 # 운영 Lab gitops-1 Argo CD 구성 요소와 동작 방식
 kubectl -n argocd get deploy,statefulset,svc
-kubectl -n argocd logs deploy/argocd-repo-server --tail=200 | grep -iE 'generat|manifest' | tail -5 || true
+kubectl -n argocd logs deploy/argocd-repo-server -c repo-server --tail=200 | grep GenerateManifest | grep -oE 'grpc.method=[A-Za-z]+|grpc.time_ms=[0-9.]+' | paste - - | tail -4 || true
 kubectl -n argocd logs statefulset/argocd-application-controller --tail=300 | grep -E 'opslab-prod' | grep -iE 'reconcil|sync' | tail -5 || true
 argocd app manifests opslab-prod | grep -E '^kind:' | sort | uniq -c
 argocd app resources opslab-prod
