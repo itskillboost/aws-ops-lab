@@ -23,12 +23,13 @@ app_terminate() {  # $1=앱 — 진행 중인 동기화 작업을 멈춘다(argo
   kubectl -n argocd patch applications.argoproj.io "$1" --type merge -p '{"status":{"operationState":{"phase":"Terminating"}}}' >/dev/null 2>&1
   for i in $(seq 1 12); do [ "$(app_json "$1" | jq -r '.status.operationState.phase // ""')" != Terminating ] && break; sleep 5; done
 }
-apps_wait() {  # [$1=초] — 세 앱이 모두 Synced·Healthy 이고 운영 앱이 브랜치 끝 커밋을 반영할 때까지 기다린다
+apps_wait() {  # [$1=초] — 세 앱이 모두 Synced·Healthy 이고 운영 앱이 브랜치 끝 커밋을 반영(마지막 작업 성공)할 때까지 기다린다
   local t=${1:-300} head a ok
   for i in $(seq 1 $((t / 10))); do
     head=$(gh_head "$(fork_repo)" "$(fork_branch)"); ok=1
     for a in $APPS; do [[ "$(app_line "$a")" == "Synced Healthy "* ]] || ok=0; done
-    [ "$ok" = 1 ] && [ "$(app_json opslab-prod | jq -r '.status.sync.revision // ""')" = "$head" ] && return 0
+    [ "$ok" = 1 ] && [ "$(app_json opslab-prod | jq -r '.status.sync.revision // ""')" = "$head" ] \
+      && [[ "$(app_json opslab-prod | jq -r '.status.operationState.phase // "Succeeded"')" == Succeeded ]] && return 0
     sleep 10
   done; return 1
 }

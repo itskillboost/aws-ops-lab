@@ -33,7 +33,9 @@ wait_spec() {  # $1=jq 조건(운영 앱 Application 에 대해) — 루트 앱�
 restore_branch() {  # 원복: 브랜치를 주입 전 커밋으로 되돌리고, 멈춘 작업을 끝내고, 다시 동기화한다
   local b; b=$(load base)
   [ -n "$b" ] && [ "$b" != None ] && gh_reset "$R" "$B" "$b" && echo "  브랜치 $B → ${b:0:7} (주입 전 커밋)"
-  for a in $APPS; do app_terminate "$a"; done
-  kick; sleep 10; app_sync opslab-root; sleep 15; app_sync opslab-prod; app_sync opslab-dev
-  apps_wait 300 && echo "  Argo CD 앱 3개 Synced·Healthy, 운영 앱이 브랜치 끝 커밋 반영" || echo "  ⚠️ 아직 Synced·Healthy 가 아닙니다: $(app_line opslab-prod) — 1~2분 뒤 verify.sh"
+  for a in $APPS; do app_terminate "$a"; done            # 재시도 중인 작업까지 멈춘다
+  kick; sleep 10; app_sync opslab-root; sleep 20
+  for a in opslab-prod opslab-dev; do app_terminate "$a"; app_sync "$a"; done
+  apps_wait 240 || { app_terminate opslab-prod; app_sync opslab-prod; sleep 5; }   # 마지막 작업이 실패로 남았으면 한 번 더
+  apps_wait 240 && echo "  Argo CD 앱 3개 Synced·Healthy, 운영 앱이 브랜치 끝 커밋 반영" || echo "  ⚠️ 아직 Synced·Healthy 가 아닙니다: $(app_line opslab-prod) — 1~2분 뒤 verify.sh"
 }
