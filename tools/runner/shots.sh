@@ -34,13 +34,13 @@ with sync_playwright() as p:
             pg.get_by_label("ID token").first.fill(T); pg.get_by_role("button", name="Authenticate").click(); time.sleep(6)
             print("login", pg.url); continue
         if path == "ARGO_LOGIN":   # Argo CD 로그인 화면을 찍고 admin 으로 로그인
-            pg.goto(f"http://{AH}/login", wait_until="networkidle", timeout=120000); time.sleep(3)
+            pg.goto(f"http://{AH}/login", wait_until="domcontentloaded", timeout=120000); time.sleep(5)
             pg.screenshot(path=f"/out/{name}.png")
             pg.locator("input").nth(0).fill("admin"); pg.locator("input[type=password]").first.fill(AP)
             pg.get_by_role("button").filter(has_text="SIGN IN").first.click(); time.sleep(6)
             print("argo login", pg.url); continue
         if path.startswith("ARGO:"):
-            pg.goto(f"http://{AH}{path[5:]}", wait_until="networkidle", timeout=120000); time.sleep(8)
+            pg.goto(f"http://{AH}{path[5:]}", wait_until="domcontentloaded", timeout=120000); time.sleep(10)   # Argo CD 화면은 실시간 연결을 계속 열어 두어 networkidle 이 오지 않는다
             pg.screenshot(path=f"/out/{name}.png", full_page=name.endswith("-full"))
             print("shot", name, pg.url, "::", pg.inner_text("body").replace("\n"," | ")[:400]); continue
         pg.goto(f"http://{H}{path}", wait_until="networkidle", timeout=120000); time.sleep(6)
