@@ -10,4 +10,4 @@ busybox: ""          # DB 대기·배포 전 점검용 이미지(강사 미러)
 # 운영 앱 이미지(릴리스) — image 모듈의 파이프라인이 빌드·스캔을 통과한 이미지로 이 두 줄을 커밋한다(sed 로 고치므로 한 줄씩 둔다).
 # 비어 있으면 위 image(강사 미러 이미지)를 쓴다.
 releaseRepository: "676206941602.dkr.ecr.ap-northeast-2.amazonaws.com/s00-image-app"
-releaseTag: "c25c373"
+releaseTag: "ef9a7ab"
