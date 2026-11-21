@@ -33,6 +33,7 @@ verify_main() {
       || ng "배포 미완료: 희망 $want / 최신 $upd / Ready $rdy / 전체 $tot (kubectl -n $NS rollout status deploy $DEP)"
   fi
   bad=$(kubectl -n "$NS" get pods -l app.kubernetes.io/name=opslab-app -o json 2>/dev/null | jq -r '.items[] | select(.metadata.deletionTimestamp==null)
+        | select((.metadata.ownerReferences[0].kind // "")!="Job")
         | select(.status.phase!="Running" or ([.status.containerStatuses[]?|.ready]|all|not))
         | "\(.metadata.name) \([.status.initContainerStatuses[]?,.status.containerStatuses[]? | .state.waiting.reason // empty] | join(","))"')
   [ -z "$bad" ] && ok "앱 파드 모두 Running·Ready" || { ng "Running·Ready 가 아닌 앱 파드:"; sed 's/^/         /' <<<"$bad"; }
