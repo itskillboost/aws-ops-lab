@@ -1,0 +1,23 @@
+# gitops-4 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: gitops-4
+checks:
+  - name: 운영 앱(opslab-prod)이 있고 Synced·Healthy 다
+    run: 'kubectl -n argocd get applications.argoproj.io opslab-prod -o json | jq -e ''.status.sync.status == "Synced" and .status.health.status == "Healthy"'' >/dev/null'
+    fix: 'git revert <잘못된 커밋> && git push — App of Apps 에서는 자식 앱의 자동 동기화를 끌 수 없으므로(루트 앱이 되돌림) argocd app rollback 대신 Git 을 되돌립니다'
+    ref: '해답 — 공통 확인'
+  - name: 앱 목록에 운영 앱 정의(prod.yaml)가 있다
+    run: 'bash ~/opslab/modules/gitops/gitfile.sh gitops/apps/templates/prod.yaml | grep -q ''name: opslab-prod'''
+    fix: '삭제 커밋을 git revert 하세요. 지운 파일을 새로 쓰는 것보다 revert 가 기록이 깔끔합니다'
+    ref: '해답 — 변형 ② 조치'
+  - name: 운영 값의 캐시 주소가 실제 서비스(redis)다
+    run: '! bash ~/opslab/modules/gitops/gitfile.sh gitops/envs/prod/values.yaml | grep -q ''opslab-redis'''
+    fix: '캐시 주소 커밋만 git revert 하세요(릴리스 v2 커밋은 남겨도 됩니다)'
+    ref: '해답 — 변형 ① 조치'
+  - name: 사용자 경로 /cache 가 200 이다
+    run: 'curl -s -o /dev/null -m 8 -w ''%{http_code}'' http://$(kubectl -n app get ingress opslab-app -o jsonpath=''{.status.loadBalancer.ingress[0].hostname}'')/cache | grep -qx 200'
+    fix: '운영 앱이 브랜치 끝 커밋으로 동기화됐는지(argocd app get opslab-prod) 확인하고, 새 파드가 뜰 때까지 1~2분 기다리세요'
+    ref: '해답 — 정상 확인'
+  - name: 런북에 이전 리비전 확인(history)과 되돌리기(revert) 절차가 있다
+    run: 'grep -qiE ''history|이력|log'' ~/opslab-work/gitops/runbook-gitops-4.md && grep -qiE ''revert|롤백|rollback'' ~/opslab-work/gitops/runbook-gitops-4.md'
+    fix: '런북에 "argocd app history opslab-prod / git log 로 직전 정상 리비전 찾기 → git revert <커밋> → git push → argocd app get 으로 반영 확인" 을 적으세요'
+    ref: '해답 — 런북 예시'

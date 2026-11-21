@@ -1,0 +1,41 @@
+{{- /* GitOps(Argo CD)에서 쓰는 리소스 — 앱 설정 ConfigMap(sync-wave)과 배포 전 점검 Job(PreSync 훅) */ -}}
+{{- if .Values.config.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.name | default (printf "%s-config" .Release.Name) }}
+  labels: {{- include "opslab-app.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .Values.config.wave | quote }}   # 적용 순서: 앱(0)보다 먼저
+data: {{- toYaml .Values.config.data | nindent 2 }}
+---
+{{- end }}
+{{- if .Values.precheck.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-precheck
+  labels: {{- include "opslab-app.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync                          # 배포(Sync) 전에 먼저 실행
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation # 다음 배포 때 지난 Job 을 지우고 새로 만든다
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 90
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opslab-app                    # DB 출입문 규칙(NetworkPolicy)이 허용하는 라벨
+        app.kubernetes.io/instance: {{ .Release.Name }}-precheck
+        course: opslab
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: precheck
+          image: {{ .Values.waitForDb.image }}
+          command: ["sh", "-c", "if nc -z -w 3 $DB_HOST $DB_PORT; then echo \"precheck: DB $DB_HOST:$DB_PORT OK\"; else echo \"precheck: DB $DB_HOST:$DB_PORT unreachable\"; exit 1; fi"]
+          env:
+            - { name: DB_HOST, value: {{ .Values.precheck.host | default .Values.db.host | quote }} }
+            - { name: DB_PORT, value: {{ .Values.db.port | quote }} }
+          resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { memory: 32Mi } }
+{{- end }}

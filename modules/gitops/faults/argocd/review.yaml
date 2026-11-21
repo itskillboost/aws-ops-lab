@@ -1,0 +1,19 @@
+# gitops-6 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: gitops-6
+checks:
+  - name: Argo CD 구성 요소(repo-server·application-controller·server·redis)가 모두 Ready 다
+    run: 'for c in deploy/argocd-repo-server statefulset/argocd-application-controller deploy/argocd-server deploy/argocd-redis; do r=$(kubectl -n argocd get $c -o jsonpath=''{.status.readyReplicas}''); [ "${r:-0}" -ge 1 ] || exit 1; done'
+    fix: 'kubectl -n argocd get deploy,statefulset 로 READY 0 인 부품을 찾고 kubectl -n argocd scale … --replicas=1'
+    ref: '해답 — 변형 ①·③ 조치'
+  - name: 루트·운영 앱에 저장소 오류(ComparisonError)가 없다
+    run: 'for a in opslab-root opslab-prod; do kubectl -n argocd get applications.argoproj.io $a -o json | jq -e ''[.status.conditions[]? | select(.type|test("Error"))] | length == 0'' >/dev/null || exit 1; done'
+    fix: 'argocd repo list 의 STATUS(Failed·authentication required)를 보고 argocd repo add https://github.com/<ID>/aws-ops-lab.git --username x-access-token --password "$(aws secretsmanager get-secret-value --secret-id opslab/github-token --query SecretString --output text)" --upsert'
+    ref: '해답 — 변형 ② 조치'
+  - name: 운영 앱이 브랜치 끝 커밋을 반영했다
+    run: 'h=$(source ~/opslab/common/gh.sh; kubectl -n argocd get applications.argoproj.io opslab-root -o json | jq -r ''"\(.spec.source.repoURL|ltrimstr("https://github.com/")|rtrimstr(".git")) \(.spec.source.targetRevision)"'' | { read r b; gh_head $r $b; }); [ -n "$h" ] && kubectl -n argocd get applications.argoproj.io opslab-prod -o jsonpath=''{.status.sync.revision}'' | grep -qx "$h"'
+    fix: '부품을 고친 뒤 argocd app get opslab-prod --hard-refresh 로 Git 을 다시 읽게 하세요'
+    ref: '해답 — 정상 확인'
+  - name: 런북에 Argo CD 부품별 확인(repo-server·application-controller·저장소 연결)이 있다
+    run: 'grep -qiE ''repo-server'' ~/opslab-work/gitops/runbook-gitops-6.md && grep -qiE ''application-controller|controller'' ~/opslab-work/gitops/runbook-gitops-6.md && grep -qiE ''repo list|저장소'' ~/opslab-work/gitops/runbook-gitops-6.md'
+    fix: '런북 2. 확인 순서에 "kubectl -n argocd get pods → argocd app get 의 CONDITION → argocd repo list(저장소 연결) → repo-server·application-controller 로그" 를 적으세요'
+    ref: '해답 — 런북 예시'

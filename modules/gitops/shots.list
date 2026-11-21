@@ -1,0 +1,8 @@
+# gitops 따라하기 페이지의 화면 (파일이름 | 경로) — Headlamp 경로, ARGO: 로 시작하면 Argo CD 화면
+go-01-argocd-login | ARGO_LOGIN
+go-02-argocd-apps | ARGO:/applications
+go-03-argocd-root-tree-full | ARGO:/applications/argocd/opslab-root
+go-04-argocd-prod-tree-full | ARGO:/applications/argocd/opslab-prod
+go-05-headlamp-login | LOGIN
+go-06-pods-argocd | /c/main/pods?namespace=argocd
+go-07-pods-app-dev | /c/main/pods?namespace=app-dev

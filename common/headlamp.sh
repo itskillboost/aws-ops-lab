@@ -14,6 +14,8 @@ IP=$(tr -d ' \r' <<<"$IP")
 [[ "$IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "❌ IP 형식이 아닙니다: '$IP'"; exit 1; }
 kubectl -n headlamp patch svc headlamp --type merge -p "{\"spec\":{\"loadBalancerSourceRanges\":[\"$IP/32\"]}}" >/dev/null
 grep -q '^export HEADLAMP_SOURCE=' ~/opslab-env.sh 2>/dev/null && sed -i "s#^export HEADLAMP_SOURCE=.*#export HEADLAMP_SOURCE=$IP/32#" ~/opslab-env.sh || echo "export HEADLAMP_SOURCE=$IP/32" >> ~/opslab-env.sh
+kubectl -n argocd get svc argocd-server >/dev/null 2>&1 \
+  && kubectl -n argocd patch svc argocd-server --type merge -p "{\"spec\":{\"loadBalancerSourceRanges\":[\"$IP/32\"]}}" >/dev/null   # Argo CD 화면도 같은 IP 만
 echo "② 접속 허용: $IP/32 만"
 TOKEN=$(kubectl -n headlamp create token headlamp-admin --duration=8h)
 echo "③ 로그인 토큰 발급(8시간 유효)"

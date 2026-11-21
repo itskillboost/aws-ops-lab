@@ -1,0 +1,9 @@
+# 루트 앱(opslab-root)이 valuesObject 로 채워 넘기는 값 — 수강생·계정마다 다르므로 Git 에는 빈 값만 둔다
+repoURL: ""          # 내 Fork 주소 https://github.com/<ID>/aws-ops-lab.git
+revision: ""         # 오늘 브랜치 opslab/<모듈>-<날짜>
+sid: ""              # 학번
+account: ""          # AWS 계정 ID (IRSA 역할 ARN 에 쓴다)
+image:
+  repository: ""     # 샘플 앱 이미지(강사 미러)
+  tag: ""
+busybox: ""          # DB 대기·배포 전 점검용 이미지(강사 미러)

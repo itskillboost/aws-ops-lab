@@ -1,0 +1,29 @@
+# 루트 앱(opslab-root) — 앱 목록(gitops/apps)을 읽어 자식 앱(opslab-prod·opslab-dev)을 만든다. App of Apps 의 "목차 페이지".
+# 이 파일은 Argo CD 가 Git 에서 읽지 않는다. 따라하기(또는 K5 층)가 __REPO__ 등을 채워 kubectl apply 로 직접 만든다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opslab-root
+  namespace: argocd
+  labels: { course: opslab }
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/__REPO__.git
+    targetRevision: __BRANCH__
+    path: gitops/apps
+    helm:
+      valuesObject:
+        repoURL: https://github.com/__REPO__.git
+        revision: __BRANCH__
+        sid: __SID__
+        account: "__ACCT__"
+        image: { repository: __APP_REPO__, tag: "__APP_TAG__" }
+        busybox: __BUSYBOX__
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }

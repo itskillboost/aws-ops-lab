@@ -25,6 +25,11 @@ day0)
   aws iam get-user --user-name "$U" --query 'User.PermissionsBoundary.PermissionsBoundaryArn' --output text 2>/dev/null | grep -q opslab-student-boundary \
     && ok "내 IAM 사용자에 권한 경계" || ng "권한 경계가 붙어 있지 않습니다" "Day 0 따라하기 4단계 마지막(NextStep 명령)"
   aws secretsmanager describe-secret --secret-id opslab/github-token >/dev/null 2>&1 && ok "GitHub 토큰 시크릿(opslab/github-token)" || ng "GitHub 토큰 시크릿 없음 (gitops 모듈부터 필요)" "Day 0 따라하기 5단계"
+  if [ -n "${GITHUB_REPO:-}" ]; then
+    source "$ROOT/common/gh.sh"
+    gh_api GET "/repos/$GITHUB_REPO" 2>/dev/null | jq -e '.fork == true and .permissions.push == true' >/dev/null \
+      && ok "내 Fork $GITHUB_REPO (토큰으로 쓰기 가능)" || ng "Fork $GITHUB_REPO 를 토큰으로 쓸 수 없습니다(이름·토큰 권한 Contents: Read and write 확인)" "Day 0 따라하기 5단계"
+  else ng "~/opslab-env.sh 에 export GITHUB_REPO=<내 GitHub ID>/aws-ops-lab 가 없습니다" "Day 0 따라하기 5단계"; fi
   [ -d ~/opslab/.git ] && ok "실습 저장소 ~/opslab" || ng "실습 저장소 없음" "git clone https://github.com/worldvit/aws-ops-lab ~/opslab"
   end ;;
 final)
