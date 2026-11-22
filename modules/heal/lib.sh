@@ -46,7 +46,12 @@ restore() {  # 원복: FIS 중지 → 브랜치를 주입 전 커밋으로 → D
   for i in $(seq 1 40); do [ "$(nodes_ready)" -ge 3 ] && break; sleep 15; done
   for a in $APPS; do app_terminate "$a"; done
   kick; sleep 10; app_sync opslab-root; sleep 20; app_terminate opslab-prod; app_sync opslab-prod
-  ro_wait 900 || { kubectl -n "$APP_NS" argo rollouts retry rollout opslab-app >/dev/null 2>&1 || kubectl -n "$APP_NS" patch rollout opslab-app --type merge -p '{"status":{"abort":false}}' --subresource=status >/dev/null 2>&1; ro_wait 600; }
+  # 되돌리는 대상은 이미 검증된 이전 버전이다 — 결함 stable 이 섞인 채로 분석을 다시 타면 되돌리기마저 중단되므로 단계·분석을 건너뛴다(긴급 롤백)
+  if ! ro_wait 120; then
+    [ "$(ro_json | jq -r '.status.abort // false')" = true ] && kubectl argo rollouts retry rollout opslab-app -n "$APP_NS" >/dev/null 2>&1 && sleep 5
+    kubectl argo rollouts promote opslab-app -n "$APP_NS" --full >/dev/null 2>&1 && echo "  긴급 롤백: kubectl argo rollouts promote --full (단계·분석 건너뜀)"
+    ro_wait 600
+  fi
   if [ "$(zones_of_app | wc -l)" -lt 2 ]; then   # 파드가 한 노드·AZ 에 몰려 있으면 다시 나눈다(차례로 다시 시작)
     kubectl -n "$APP_NS" patch rollout opslab-app --type merge -p "{\"spec\":{\"restartAt\":\"$(date -u +%FT%TZ)\"}}" >/dev/null && echo "  파드 다시 시작(AZ 재분산)"
     sleep 30; ro_wait 600

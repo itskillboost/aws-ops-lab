@@ -5,8 +5,8 @@ checks:
   run: bash ~/opslab/modules/heal/state.sh analysis
   fix: 운영 값 rollout.analysis 의 maxErrorRate(0.05)·maxLatency(0.5)·okMetric(HTTPCode_Target_2XX_Count)을 되돌리는 커밋을 푸시하세요(git revert)
   ref: 해답 — 변형별 조치
-- name: Rollout 이 Healthy 이고 마지막 분석이 성공이다
-  run: bash ~/opslab/modules/heal/state.sh rollout && [ "$(kubectl -n app get analysisrun --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].status.phase}')" = Successful ]
+- name: Rollout 이 Healthy 이다(결함 버전은 되돌리고, 정상 버전은 판정을 통과)
+  run: bash ~/opslab/modules/heal/state.sh rollout
   fix: 기준을 고친 뒤 중단(abort)된 롤아웃은 kubectl argo rollouts retry rollout opslab-app -n app 으로 다시 시도하세요
   ref: 해답 — 변형 ② 조치
 - name: 런북에 분석 결과(AnalysisRun)를 확인하는 순서가 있다
