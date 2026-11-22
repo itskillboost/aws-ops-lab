@@ -11,6 +11,7 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   {{- if .Values.rollout.enabled }}
+  rollbackWindow: { revisions: 3 }   # 최근 3개 리비전으로 되돌릴 때는 단계·분석 없이 바로(빠른 롤백) — 결함 stable 을 분석에 걸면 되돌리기도 막힌다
   strategy:
     canary:
       maxSurge: 1
