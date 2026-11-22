@@ -3,7 +3,7 @@ lab: heal-2
 checks:
 - name: 분석 템플릿의 지표 이름·판정 기준이 정상이다
   run: bash ~/opslab/modules/heal/state.sh analysis
-  fix: 운영 값 rollout.analysis 의 okMetric(HTTPCode_Target_2XX_Count, 대소문자 정확히)·maxErrorRate(0.05)·maxLatency(0.5)를 되돌리는 커밋을 푸시하세요
+  fix: 운영 값 rollout.analysis 의 maxErrorRate(0.05)·maxLatency(0.5)·okMetric(HTTPCode_Target_2XX_Count)을 되돌리는 커밋을 푸시하세요(git revert)
   ref: 해답 — 변형별 조치
 - name: Rollout 이 Healthy 이고 마지막 분석이 성공이다
   run: bash ~/opslab/modules/heal/state.sh rollout && [ "$(kubectl -n app get analysisrun --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].status.phase}')" = Successful ]
