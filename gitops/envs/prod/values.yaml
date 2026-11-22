@@ -2,7 +2,7 @@
 # charts/opslab-app/values.yaml(기본값)에서 바꾸는 것만 적는다.
 replicaCount: 2
 env:
-  APP_VERSION: v1
+  APP_VERSION: v2
   APP_START_DELAY: "35"  # 느리게 뜨는 앱 — 프로세스가 뜨기까지 35초(그동안 포트가 닫혀 있다)
   APP_WARMUP_SEC: "15"   # 뜬 뒤 15초 동안 캐시 데우기 — /health 는 200, /ready·/api 는 503
 db:
