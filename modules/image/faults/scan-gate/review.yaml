@@ -1,0 +1,19 @@
+# image-3 재발 방지로 확인할 항목 — common/review.sh 가 읽는다.
+lab: image-3
+checks:
+  - name: 파이프라인 마지막 실행이 성공했고 최근 앱 커밋이 운영 이미지에 들어 있다
+    run: 'bash ~/opslab/modules/image/state.sh released'
+    fix: '원인을 고친 커밋을 푸시하거나(①) 게이트 기준을 되돌린 뒤 [변경 사항 릴리스](②)로 파이프라인을 다시 돌리세요'
+    ref: '해답 — 정상 확인'
+  - name: 스캔 게이트 기준이 CRITICAL 이상 0개다
+    run: 'bash ~/opslab/modules/image/state.sh gate'
+    fix: 'CodeBuild 프로젝트 $SID-image-scan 의 환경변수 GATE_SEVERITY=CRITICAL, GATE_MAX=0 으로 되돌리세요. 기준 변경은 승인 절차를 거치도록 런북에 적습니다'
+    ref: '해답 — 변형 ② 조치'
+  - name: Dockerfile 의 기본 이미지가 최신 태그(python:3.12-slim)다
+    run: 'bash ~/opslab/modules/gitops/gitfile.sh app/Dockerfile | grep -q "^FROM .*/python:3\.12-slim$"'
+    fix: '옛 태그로 고정한 커밋을 git revert 로 되돌리세요. 기본 이미지는 주기적으로 최신 패치 태그로 다시 빌드해야 취약점이 줄어듭니다'
+    ref: '해답 — 변형 ① 조치'
+  - name: 런북에 스캔 결과(취약점 등급·패키지)를 확인하는 순서가 있다
+    run: 'grep -qiE "스캔|scan" ~/opslab-work/image/runbook-image-3.md && grep -qiE "CRITICAL|CVE|취약점" ~/opslab-work/image/runbook-image-3.md'
+    fix: '런북 2. 확인 순서에 "실패한 단계(Scan) → 게이트 로그의 등급별 개수와 기준 → ECR 이미지 스캔 결과(CVE·패키지) → 기본 이미지·게이트 기준을 바꾼 커밋·설정 변경" 을 적으세요'
+    ref: '해답 — 런북 예시'

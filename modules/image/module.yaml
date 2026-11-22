@@ -1,0 +1,18 @@
+id: image
+title: 이미지 빌드와 배포 파이프라인
+hours: 8
+requires: K5        # 아침에 배포: L1 네트워크 + K1 클러스터 + K2 워크로드 + K3 인그레스 + K4 권한·시크릿 + K5 GitOps(Argo CD·App of Apps)
+builds: —           # 층을 만들지 않음 — 직접 구축: ECR 저장소(태그 불변·수명주기·스캔)·GitHub 연결·CodeBuild 3개·CodePipeline. 따라잡기(start.sh image full)는 full.sh
+fork: true          # start.sh 가 내 Fork 를 동기화하고 오늘 브랜치 opslab/image-<날짜> 를 만든다(파이프라인의 소스이자 Argo CD 가 보는 곳)
+topics:
+  - 컨테이너 이미지 빌드 자동화 (구축 + image-1 운영 Lab + image-2)
+  - ECR 태그 전략과 수명주기 정책 (구축 + image-1 + image-4)
+  - 취약점 스캔 게이트 적용 (image-3)
+  - 이미지 버전의 매니페스트·차트 자동 반영 (구축 + image-4)
+  - 파이프라인의 Git 커밋 구조 (image-1 운영 Lab)
+  - 빌드 성공 후 배포 실패 시 확인 경로 (image-4)
+# Lab ID | 장애 폴더 | 변형 수 | 구분 | 장애 유형(주입할 때 보여 줌)
+labs:
+  - image-2 | build-fail  | 3 | 필수 | 새 릴리스가 빌드 단계에서 실패해 이미지가 만들어지지 않는 장애
+  - image-3 | scan-gate   | 2 | 필수 | 이미지는 만들어졌는데 취약점 스캔 게이트에서 배포가 멈춘 장애
+  - image-4 | deploy-path | 3 | 필수 | 빌드·스캔은 통과했는데 새 버전이 운영에 반영되지 않는 장애

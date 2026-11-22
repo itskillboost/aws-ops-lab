@@ -1,0 +1,22 @@
+# image 모듈 — 3) 매니페스트 반영. 스캔을 통과한 이미지 주소를 내 Fork 오늘 브랜치의 gitops/apps/values.yaml 에 커밋한다.
+# 그러면 Argo CD 가 Git 변경을 보고 운영 앱(opslab-prod)을 새 이미지로 바꾼다(GitOps — 파이프라인은 클러스터에 직접 손대지 않는다).
+# 프로젝트 환경변수: ECR_URI, GITHUB_REPO(내 Fork), GITOPS_BRANCH(오늘 브랜치), GITHUB_TOKEN(Secrets Manager 참조) / 파이프라인: IMAGE_TAG
+# 이 커밋은 gitops/ 만 바꾸므로 파이프라인을 다시 깨우지 않는다(트리거는 app/·pipeline/ 변경만 본다).
+version: 0.2
+phases:
+  build:
+    commands:
+      - echo "== 매니페스트 갱신 ${GITHUB_REPO} 브랜치 ${GITOPS_BRANCH} ← ${ECR_URI}:${IMAGE_TAG}"
+      - git clone -q --depth 5 -b "$GITOPS_BRANCH" "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git" fork
+      - |
+        cd fork
+        git config user.name opslab-pipeline; git config user.email pipeline@opslab.local
+        for i in 1 2 3; do
+          sed -i -E "s|^releaseRepository:.*|releaseRepository: \"${ECR_URI}\"|; s|^releaseTag:.*|releaseTag: \"${IMAGE_TAG}\"|" gitops/apps/values.yaml
+          if git diff --quiet; then echo "== 이미 ${IMAGE_TAG} 입니다 — 커밋할 것 없음"; break; fi
+          git commit -qam "image: ${IMAGE_TAG} 배포 (빌드 ${CODEBUILD_BUILD_NUMBER})"
+          git push -q origin "HEAD:${GITOPS_BRANCH}" && { echo "✅ 커밋 $(git rev-parse --short HEAD) 푸시"; break; }
+          echo "푸시 실패 — 브랜치가 그새 바뀌었으면 다시 받아서 시도 ($i/3)"; git fetch -q origin "$GITOPS_BRANCH"; git reset -q --hard "origin/$GITOPS_BRANCH"
+          [ "$i" = 3 ] && exit 1
+        done
+      - grep -E '^release' gitops/apps/values.yaml

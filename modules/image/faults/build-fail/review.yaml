@@ -1,0 +1,23 @@
+# image-2 재발 방지로 확인할 항목 — common/review.sh 가 읽는다. 내 Fork 의 오늘 브랜치 파일은 GitHub API 로 읽는다.
+lab: image-2
+checks:
+  - name: 파이프라인 마지막 실행이 성공했고 최근 앱 커밋이 운영 이미지에 들어 있다
+    run: 'bash ~/opslab/modules/image/state.sh released'
+    fix: '원인을 고친 커밋을 푸시해 파이프라인이 다시 돌게 하세요(권한·설정만 고쳤다면 콘솔 파이프라인의 [변경 사항 릴리스]). 실패한 실행을 다시 시도하면 고장 난 소스로 다시 빌드합니다'
+    ref: '해답 — 정상 확인'
+  - name: 빌드 역할에 ECR 푸시를 막는 거부 정책이 없다
+    run: '! aws iam get-role-policy --role-name $SID-image-build-role --policy-name opslab-fault-deny >/dev/null 2>&1'
+    fix: 'aws iam delete-role-policy --role-name $SID-image-build-role --policy-name opslab-fault-deny — 그리고 권한 변경은 누가 왜 했는지 CloudTrail(PutRolePolicy)로 확인해 런북에 적으세요'
+    ref: '해답 — 변형 ② 조치'
+  - name: Dockerfile 의 기본 이미지가 미러에 있는 태그(python:3.12-slim)다
+    run: 'bash ~/opslab/modules/gitops/gitfile.sh app/Dockerfile | grep -q "^FROM .*/python:3\.12-slim$"'
+    fix: 'app/Dockerfile 의 FROM 태그를 python:3.12-slim 으로 되돌리는 커밋(git revert)을 푸시하세요. 기본 이미지 태그는 미러 목록(과정 파일 images)에 있는 것만 씁니다'
+    ref: '해답 — 변형 ① 조치'
+  - name: 빌드 명세(pipeline/buildspec-build.yml)가 올바른 YAML 이다
+    run: 'bash ~/opslab/modules/gitops/gitfile.sh pipeline/buildspec-build.yml | python3 -c "import sys,yaml; yaml.safe_load(sys.stdin)"'
+    fix: 'git revert 로 빌드 명세 커밋을 되돌리세요. 들여쓰기는 공백만 씁니다(탭 금지) — 커밋 전에 python3 -c "import yaml;yaml.safe_load(open(...))" 로 확인'
+    ref: '해답 — 변형 ③ 조치'
+  - name: 런북에 빌드 로그(CodeBuild 단계)를 확인하는 순서가 있다
+    run: 'grep -qiE "CodeBuild|빌드 로그" ~/opslab-work/image/runbook-image-2.md && grep -qiE "phase|단계|DOWNLOAD_SOURCE|BUILD" ~/opslab-work/image/runbook-image-2.md'
+    fix: '런북 2. 확인 순서에 "파이프라인 실행 → 실패한 단계(Build) → CodeBuild 빌드 기록의 단계(phase) 상세 → 빌드 로그 마지막 오류 줄 → 최근 커밋·권한 변경(CloudTrail)" 을 적으세요'
+    ref: '해답 — 런북 예시'
