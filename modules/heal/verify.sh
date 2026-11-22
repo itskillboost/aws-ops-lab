@@ -71,8 +71,11 @@ verify_main() {
     grep -q 'MetricName="HTTPCode_Target_2XX_Count"' <<<"$q" && ok "정상 응답 지표 이름 맞음(HTTPCode_Target_2XX_Count)" || ng "정상 응답 지표가 이상합니다: $q — 데이터가 없으면 판정이 늘 통과합니다"
     awk -v e="${er:-9}" -v l="${lt:-0}" 'BEGIN{exit !(e<=0.1 && e>0 && l>=0.1)}' && ok "판정 기준: 오류율 ≤ $er, 응답시간 ≤ ${lt}s" || ng "판정 기준이 이상합니다: 오류율 ≤ ${er:-?}, 응답시간 ≤ ${lt:-?}s (기준 0.05·0.5)"
   else ng "분석 템플릿이 없습니다"; fi
-  local lr; lr=$(kubectl -n "$NS" get analysisrun --sort-by=.metadata.creationTimestamp -o json 2>/dev/null | jq -r '.items[-1].status.phase // "없음"')
-  [ "$lr" = Successful ] || [ "$lr" = 없음 ] && ok "마지막 분석 결과: $lr" || ng "마지막 분석 결과: $lr"
+  # 지금 운영 중인(stable) 버전이 받은 마지막 분석을 본다 — 중단(abort)된 카나리를 되돌린 뒤 남은 Failed 기록은 운영 버전의 것이 아니다
+  local st lr; st=$(ro_json | jq -r '.status.stableRS // empty')
+  lr=$(kubectl -n "$NS" get analysisrun --sort-by=.metadata.creationTimestamp -o json 2>/dev/null \
+       | jq -r --arg p "opslab-app-$st-" '[.items[] | select(.metadata.name | startswith($p))][-1].status.phase // "없음"')
+  [ "$lr" = Successful ] || [ "$lr" = 없음 ] && ok "운영 버전($st)의 마지막 분석 결과: $lr" || ng "운영 버전($st)의 마지막 분석 결과: $lr"
 
   echo "[7] 노드 자동 복구"
   local rc; rc=$(ng_json | jq -c '.nodeRepairConfig // {}')
